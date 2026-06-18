@@ -1,0 +1,58 @@
+import type { Store } from '../types/models';
+
+export const STORES: Store[] = [
+  {
+    id: 'store_wv',
+    name: 'West Village',
+    address: '412 Bleecker St, New York, NY 10014',
+    phone: '(212) 555-0100',
+    email: 'hello@opal-wv.com',
+    timezone: 'America/New_York',
+    taxRate: 8.875,
+    hours: {
+      mon: { closed: false, open: '9:00', close: '19:00' },
+      tue: { closed: false, open: '9:00', close: '19:00' },
+      wed: { closed: false, open: '9:00', close: '19:00' },
+      thu: { closed: false, open: '9:00', close: '19:00' },
+      fri: { closed: false, open: '9:00', close: '19:00' },
+      sat: { closed: false, open: '10:00', close: '18:00' },
+      sun: { closed: true, open: '', close: '' },
+    },
+  },
+  {
+    id: 'store_ue',
+    name: 'Upper East Side',
+    address: '983 Madison Ave, New York, NY 10075',
+    phone: '(212) 555-0200',
+    email: 'hello@opal-ue.com',
+    timezone: 'America/New_York',
+    taxRate: 8.875,
+    hours: {
+      mon: { closed: false, open: '9:00', close: '19:00' },
+      tue: { closed: false, open: '9:00', close: '19:00' },
+      wed: { closed: false, open: '9:00', close: '19:00' },
+      thu: { closed: false, open: '9:00', close: '19:00' },
+      fri: { closed: false, open: '9:00', close: '19:00' },
+      sat: { closed: false, open: '10:00', close: '18:00' },
+      sun: { closed: true, open: '', close: '' },
+    },
+  },
+  {
+    id: 'store_bk',
+    name: 'Brooklyn',
+    address: '215 Smith St, Brooklyn, NY 11201',
+    phone: '(718) 555-0300',
+    email: 'hello@opal-bk.com',
+    timezone: 'America/New_York',
+    taxRate: 8.875,
+    hours: {
+      mon: { closed: false, open: '10:00', close: '20:00' },
+      tue: { closed: false, open: '10:00', close: '20:00' },
+      wed: { closed: false, open: '10:00', close: '20:00' },
+      thu: { closed: false, open: '10:00', close: '20:00' },
+      fri: { closed: false, open: '10:00', close: '20:00' },
+      sat: { closed: false, open: '10:00', close: '18:00' },
+      sun: { closed: false, open: '11:00', close: '17:00' },
+    },
+  },
+];
