@@ -32,6 +32,9 @@ export const light = {
   statusCancelledText: '#C62828',
   statusVipBg: 'rgba(184,153,104,0.12)',
   statusVipText: '#A08454',
+
+  // Fixed contrast color for text on gold buttons — always dark
+  goldButtonText: '#1A1A18',
 };
 
 export type ThemeColors = typeof light;

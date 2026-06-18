@@ -45,7 +45,7 @@ export default function ReportsScreen() {
           <Feather name="arrow-left" size={24} color={colors.obsidian} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.obsidian }]}>{t('moreReports')}</Text>
-        <View style={{ width: 24 }} />
+        <StorePicker />
       </View>
 
       <ScrollView
@@ -53,8 +53,6 @@ export default function ReportsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Store Picker */}
-        <StorePicker />
 
         {/* Date Range */}
         <View style={styles.rangeRow}>

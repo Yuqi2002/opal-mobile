@@ -9,12 +9,9 @@ export default function Index() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (user) {
-      router.replace('/(tabs)/home');
-    } else {
-      router.replace('/login');
-    }
-  }, [user, isLoading]);
+    // Always show persona picker — skip session restore
+    router.replace('/login');
+  }, [isLoading]);
 
   return (
     <View style={styles.container}>

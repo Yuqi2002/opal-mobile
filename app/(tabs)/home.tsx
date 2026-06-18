@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { fmt$ } from '../../src/utils/currency';
 import {
   KPI_DATA,
   WEEKLY_REVENUE,
+  MONTHLY_REVENUE,
   TOP_PERFORMERS,
   OPS_DATA,
   STAFF_EARNINGS,
@@ -31,7 +32,7 @@ import { Card } from '../../src/components/Card';
 import { Avatar } from '../../src/components/Avatar';
 import { StatusBadge } from '../../src/components/StatusBadge';
 import { KPICard } from '../../src/components/KPICard';
-import { BarChart } from '../../src/components/BarChart';
+import { BarChart, LineChart } from '../../src/components/BarChart';
 import { shadows, radii, spacing } from '../../src/theme/tokens';
 import type { RoleId } from '../../src/types/models';
 
@@ -52,7 +53,9 @@ function OwnerHome() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const barData = WEEKLY_REVENUE.map((d) => ({
+  const [revenueRange, setRevenueRange] = useState<'week' | 'month'>('week');
+
+  const barData = (revenueRange === 'week' ? WEEKLY_REVENUE : MONTHLY_REVENUE).map((d) => ({
     label: d.day,
     value: d.amount,
   }));
@@ -66,7 +69,6 @@ function OwnerHome() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <StorePicker />
           <View style={styles.greetingRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.greeting, { color: colors.obsidian }]}>
@@ -76,6 +78,7 @@ function OwnerHome() {
                 {formatDate(new Date())}
               </Text>
             </View>
+            <StorePicker />
           </View>
         </View>
 
@@ -90,7 +93,6 @@ function OwnerHome() {
               value={fmt$(KPI_DATA.todayRevenue.value)}
               subtitle={t('dashTodayRevenue')}
               change={KPI_DATA.todayRevenue.change}
-              sparkline={KPI_DATA.todayRevenue.sparkline}
             />
             <KPICard
               value={String(KPI_DATA.appointments.value)}
@@ -102,7 +104,6 @@ function OwnerHome() {
               subtitle={t('dashAvgTicket')}
               change={KPI_DATA.avgTicket.change}
               changeSuffix=""
-              sparkline={KPI_DATA.avgTicket.sparkline}
             />
             <KPICard
               value={`${KPI_DATA.utilization.value}%`}
@@ -112,11 +113,53 @@ function OwnerHome() {
           </ScrollView>
         </View>
 
-        {/* Revenue this week */}
+        {/* Revenue chart */}
         <View style={styles.section}>
-          <SectionHeader title={t('dashRevenueThisWeek')} showFilament />
+          <View style={styles.revHeaderRow}>
+            <View>
+              <View style={[styles.revFilament, { backgroundColor: colors.gold }]} />
+              <Text style={[styles.revLabel, { color: colors.textMuted }]}>
+                {t('dashRevenueThisWeek').replace(/ this .+/i, '').toUpperCase() || 'REVENUE'}
+              </Text>
+            </View>
+            <View style={[styles.revToggleTrack, { backgroundColor: colors.border }]}>
+              <Pressable
+                style={[
+                  styles.revToggleBtn,
+                  revenueRange === 'week' && { backgroundColor: colors.goldSoft },
+                ]}
+                onPress={() => setRevenueRange('week')}
+              >
+                <Text style={[
+                  styles.revToggleBtnText,
+                  { color: colors.textMuted },
+                  revenueRange === 'week' && { color: colors.goldDeep },
+                ]}>
+                  {t('rpThisWeek')}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.revToggleBtn,
+                  revenueRange === 'month' && { backgroundColor: colors.goldSoft },
+                ]}
+                onPress={() => setRevenueRange('month')}
+              >
+                <Text style={[
+                  styles.revToggleBtnText,
+                  { color: colors.textMuted },
+                  revenueRange === 'month' && { color: colors.goldDeep },
+                ]}>
+                  {t('rpThisMonth')}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
           <Card style={styles.chartCard}>
-            <BarChart data={barData} height={110} />
+            {revenueRange === 'week'
+              ? <BarChart data={barData} height={110} />
+              : <LineChart data={barData} height={110} showDots={false} xLabelInterval={5} />
+            }
           </Card>
         </View>
 
@@ -162,10 +205,10 @@ function OwnerHome() {
           <View style={styles.actionsRow}>
             <Pressable
               style={[styles.actionPill, { backgroundColor: colors.gold }]}
-              onPress={() => router.push('/(tabs)/appointments')}
+              onPress={() => router.push('/(tabs)/appointments/book')}
             >
-              <Feather name="plus" size={16} color={colors.obsidian} />
-              <Text style={[styles.actionText, { color: colors.obsidian }]}>
+              <Feather name="plus" size={16} color={colors.goldButtonText} />
+              <Text style={[styles.actionText, { color: colors.goldButtonText }]}>
                 {t('dashBookAppt')}
               </Text>
             </Pressable>
@@ -233,7 +276,6 @@ function ReceptionistHome() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <StorePicker />
           <View style={styles.greetingRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.greeting, { color: colors.obsidian }]}>
@@ -243,6 +285,7 @@ function ReceptionistHome() {
                 {formatDate(new Date())}
               </Text>
             </View>
+            <StorePicker />
           </View>
         </View>
 
@@ -331,26 +374,11 @@ function ReceptionistHome() {
         <View style={styles.actionsRow}>
           <Pressable
             style={[styles.actionPill, { backgroundColor: colors.gold }]}
-            onPress={() => router.push('/(tabs)/appointments')}
+            onPress={() => router.push('/(tabs)/appointments/book')}
           >
-            <Feather name="plus" size={16} color={colors.obsidian} />
-            <Text style={[styles.actionText, { color: colors.obsidian }]}>
+            <Feather name="plus" size={16} color={colors.goldButtonText} />
+            <Text style={[styles.actionText, { color: colors.goldButtonText }]}>
               {t('dashBookAppt')}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.actionPill,
-              {
-                backgroundColor: colors.warmWhite,
-                borderWidth: 1,
-                borderColor: colors.borderStrong,
-              },
-            ]}
-          >
-            <Feather name="user-plus" size={16} color={colors.charcoal} />
-            <Text style={[styles.actionText, { color: colors.charcoal }]}>
-              Walk-in
             </Text>
           </Pressable>
         </View>
@@ -368,6 +396,7 @@ function StaffHome() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const router = useRouter();
 
   const todayKey = fmtKey(new Date());
 
@@ -547,15 +576,23 @@ function StaffHome() {
           )}
         </View>
 
-        <View style={{ height: 80 }} />
-      </ScrollView>
+        {/* Book Appointment */}
+        <View style={styles.section}>
+          <View style={styles.actionsRow}>
+            <Pressable
+              style={[styles.actionPill, { backgroundColor: colors.gold }]}
+              onPress={() => router.push('/(tabs)/appointments/book')}
+            >
+              <Feather name="plus" size={16} color={colors.goldButtonText} />
+              <Text style={[styles.actionText, { color: colors.goldButtonText }]}>
+                {t('dashBookAppt')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
 
-      {/* FAB */}
-      <Pressable
-        style={[styles.fab, shadows.elevated, { backgroundColor: colors.gold }]}
-      >
-        <Feather name="plus" size={24} color={colors.obsidian} />
-      </Pressable>
+        <View style={{ height: spacing.xl }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -617,6 +654,41 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
 
+  // ── Revenue header + toggle ─
+  revHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.base,
+    marginBottom: 8,
+  },
+  revFilament: {
+    width: 20,
+    height: 1.5,
+    marginBottom: 6,
+  },
+  revLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    fontFamily: 'Jost_500Medium',
+  },
+  revToggleTrack: {
+    flexDirection: 'row',
+    borderRadius: radii.pill,
+    padding: 2,
+  },
+  revToggleBtn: {
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: radii.pill,
+  },
+  revToggleBtnText: {
+    fontSize: 12,
+    fontFamily: 'Jost_500Medium',
+  },
+
   // ── KPI Section ─────────────
   kpiSection: {
     marginBottom: spacing.lg,
@@ -632,8 +704,10 @@ const styles = StyleSheet.create({
   },
   chartCard: {
     marginHorizontal: spacing.base,
-    paddingVertical: 20,
+    paddingTop: 20,
+    paddingBottom: 0,
     paddingHorizontal: spacing.base,
+    overflow: 'hidden',
   },
 
   // ── Quick Stats (receptionist) ──

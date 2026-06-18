@@ -1,89 +1,65 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import React from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useTheme } from '../src/contexts/ThemeContext';
-import { useTranslation } from '../src/contexts/I18nContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const PERSONAS = [
+  { label: 'Owner', sublabel: 'Alex Moreau', icon: 'star' as const, email: 'alex@opal.salon', password: 'owner123' },
+  { label: 'Receptionist', sublabel: 'Naomi Walsh', icon: 'clipboard' as const, email: 'naomi@opal.salon', password: 'front123' },
+  { label: 'Staff', sublabel: 'Sofia Reyes', icon: 'scissors' as const, email: 'sofia@opal.salon', password: 'staff123' },
+];
 
 export default function LoginScreen() {
   const { colors } = useTheme();
-  const { t } = useTranslation();
   const { login } = useAuth();
   const router = useRouter();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-
-  const handleLogin = () => {
-    setError('');
+  const handlePersona = (email: string, password: string) => {
     const success = login(email, password);
     if (success) {
       router.replace('/(tabs)/home');
-    } else {
-      setError(t('authInvalidCredentials'));
     }
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.cream }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.inner}>
+      <View style={styles.inner}>
         {/* Logo */}
         <View style={styles.logoSection}>
           <View style={[styles.diamond, { backgroundColor: colors.gold }]}>
             <Text style={[styles.diamondText, { color: colors.warmWhite }]}>O</Text>
           </View>
           <Text style={[styles.brandName, { color: colors.obsidian }]}>OPAL</Text>
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>{t('authWelcome')}</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>Choose a persona to continue</Text>
         </View>
 
-        {/* Form */}
-        <View style={styles.form}>
-          <View style={styles.fieldGroup}>
-            <Text style={[styles.label, { color: colors.charcoal }]}>{t('authEmail')}</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.creamDark, color: colors.obsidian, borderColor: colors.border }]}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="alex@opal.salon"
-              placeholderTextColor={colors.textFaint}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={[styles.label, { color: colors.charcoal }]}>{t('authPassword')}</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.creamDark, color: colors.obsidian, borderColor: colors.border }]}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              placeholderTextColor={colors.textFaint}
-              secureTextEntry
-              testID="password-input"
-            />
-          </View>
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          <Pressable
-            style={[styles.button, { backgroundColor: colors.gold }]}
-            onPress={handleLogin}
-            accessibilityRole="button"
-            accessibilityLabel="Sign In"
-            testID="sign-in-button"
-          >
-            <Text style={[styles.buttonText, { color: colors.obsidian }]}>{t('authSignIn')}</Text>
-          </Pressable>
-
-          <Pressable style={styles.forgotLink}>
-            <Text style={[styles.forgotText, { color: colors.goldDeep }]}>{t('authForgotPassword')}</Text>
-          </Pressable>
+        {/* Persona buttons */}
+        <View style={styles.personas}>
+          {PERSONAS.map((p) => (
+            <Pressable
+              key={p.email}
+              style={({ pressed }) => [
+                styles.personaBtn,
+                { backgroundColor: colors.warmWhite, borderColor: colors.border },
+                pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+              ]}
+              onPress={() => handlePersona(p.email, p.password)}
+            >
+              <View style={[styles.personaIcon, { backgroundColor: colors.gold + '20' }]}>
+                <Feather name={p.icon} size={20} color={colors.gold} />
+              </View>
+              <View style={styles.personaText}>
+                <Text style={[styles.personaLabel, { color: colors.obsidian }]}>{p.label}</Text>
+                <Text style={[styles.personaSublabel, { color: colors.textMuted }]}>{p.sublabel}</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={colors.textMuted} />
+            </Pressable>
+          ))}
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -96,13 +72,23 @@ const styles = StyleSheet.create({
   diamondText: { fontSize: 22, fontFamily: 'Jost_600SemiBold', transform: [{ rotate: '-45deg' }] },
   brandName: { fontSize: 28, fontFamily: 'Jost_300Light', letterSpacing: 8 },
   subtitle: { fontSize: 14, fontFamily: 'Jost_400Regular', marginTop: 8 },
-  form: { gap: 16 },
-  fieldGroup: { gap: 6 },
-  label: { fontSize: 13, fontFamily: 'Jost_500Medium' },
-  input: { height: 48, borderRadius: 12, paddingHorizontal: 16, fontSize: 15, fontFamily: 'Jost_400Regular', borderWidth: 1 },
-  error: { color: '#C62828', fontSize: 13, fontFamily: 'Jost_400Regular', textAlign: 'center' },
-  button: { height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
-  buttonText: { fontSize: 15, fontFamily: 'Jost_600SemiBold' },
-  forgotLink: { alignItems: 'center', marginTop: 8 },
-  forgotText: { fontSize: 14, fontFamily: 'Jost_500Medium' },
+  personas: { gap: 12 },
+  personaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 14,
+  },
+  personaIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  personaText: { flex: 1, gap: 2 },
+  personaLabel: { fontSize: 16, fontFamily: 'Jost_600SemiBold' },
+  personaSublabel: { fontSize: 13, fontFamily: 'Jost_400Regular' },
 });

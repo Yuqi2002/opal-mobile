@@ -124,7 +124,7 @@ export default function ServicesListScreen() {
         style={[styles.fab, { backgroundColor: colors.gold }, shadows.elevated]}
         onPress={() => router.push('/(tabs)/more/services/new' as any)}
       >
-        <Feather name="plus" size={24} color="#FFFFFF" />
+        <Feather name="plus" size={24} color={colors.goldButtonText} />
       </Pressable>
     </SafeAreaView>
   );

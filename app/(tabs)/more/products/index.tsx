@@ -111,7 +111,7 @@ export default function ProductsListScreen() {
         style={[styles.fab, { backgroundColor: colors.gold }, shadows.elevated]}
         onPress={() => router.push('/(tabs)/more/products/new' as any)}
       >
-        <Feather name="plus" size={24} color="#FFFFFF" />
+        <Feather name="plus" size={24} color={colors.goldButtonText} />
       </Pressable>
     </SafeAreaView>
   );

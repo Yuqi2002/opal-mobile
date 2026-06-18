@@ -55,6 +55,7 @@ const en: Record<string, string> = {
   dashTodayRevenue: "Today's Revenue", dashAppointments: 'Appointments',
   dashAvgTicket: 'Avg Ticket', dashUtilization: 'Utilization',
   dashRevenueThisWeek: 'Revenue this week',
+  dashRevenueThisMonth: 'Revenue this month',
   dashTopPerformers: 'Top performers',
   dashBookAppt: 'Book Appointment', dashViewReports: 'View Reports',
   dashBooked: 'Booked today', dashWaiting: 'Waiting',
@@ -64,7 +65,7 @@ const en: Record<string, string> = {
   dashEarnings: 'Earnings', dashNextUp: 'Next up',
 
   // Appointments
-  apptUpcoming: 'Upcoming', apptPast: 'Past',
+  apptUpcoming: 'Upcoming', apptPast: 'Completed',
   apptMorning: 'Morning', apptAfternoon: 'Afternoon', apptEvening: 'Evening',
   apptNoAppointments: 'No appointments',
   apptDetail: 'Appointment', apptDate: 'Date', apptTime: 'Time',

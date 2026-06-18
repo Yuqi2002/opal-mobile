@@ -298,6 +298,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 16,
     fontFamily: 'Jost_600SemiBold',
-    color: '#FFFFFF',
+    color: '#1A1A18',
   },
 });

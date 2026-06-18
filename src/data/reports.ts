@@ -10,6 +10,17 @@ export const WEEKLY_REVENUE = [
   { day: 'Sun', amount: 0 },
 ];
 
+export const MONTHLY_REVENUE = (() => {
+  const base = [
+    3200, 3450, 2980, 3620, 3890, 4100, 3740,
+    2840, 3120, 3380, 3560, 3950, 4280, 3160,
+    3100, 2960, 3240, 3780, 3420, 3650, 3480,
+    2780, 3340, 3080, 3450, 3890, 4280, 3320,
+    3150, 3400,
+  ];
+  return base.map((amount, i) => ({ day: String(i + 1), amount }));
+})();
+
 export const KPI_DATA = {
   todayRevenue: { value: 4280, change: 12, sparkline: [3200, 3400, 2900, 3600, 3100, 4000, 4280] },
   appointments: { value: 34, remaining: 6 },

@@ -7,6 +7,7 @@ import { StoreProvider } from '../src/contexts/StoreContext';
 import { ThemeProvider } from '../src/contexts/ThemeContext';
 import { I18nProvider } from '../src/contexts/I18nContext';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { StoreGate } from '../src/components/StorePicker';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -30,12 +31,15 @@ export default function RootLayout() {
         <AuthProvider>
           <StoreProvider>
             <StatusBar style="auto" />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="login" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
-            </Stack>
+            <View style={{ flex: 1 }}>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="login" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
+              </Stack>
+              <StoreGate />
+            </View>
           </StoreProvider>
         </AuthProvider>
       </I18nProvider>

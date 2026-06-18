@@ -10,7 +10,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../../src/contexts/ThemeContext';
+import { shadows } from '../../../../src/theme/tokens';
 import { useTranslation } from '../../../../src/contexts/I18nContext';
+import { useAuth } from '../../../../src/contexts/AuthContext';
+import { canManageStaff } from '../../../../src/utils/permissions';
 import { SearchBar } from '../../../../src/components/SearchBar';
 import { FilterChips } from '../../../../src/components/FilterChips';
 import { Avatar } from '../../../../src/components/Avatar';
@@ -23,6 +26,9 @@ export default function StaffListScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
+  const { user } = useAuth();
+
+  const showAdd = user ? canManageStaff(user.role) : false;
 
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
@@ -84,7 +90,7 @@ export default function StaffListScreen() {
                 </Text>
                 <View style={styles.cardMeta}>
                   <StatusBadge
-                    status={staff.status === 'active' ? 'active' : 'inactive'}
+                    status={staff.status}
                     label={staff.role}
                   />
                   <Text style={[styles.cardShift, { color: colors.textMuted }]}>{staff.shift}</Text>
@@ -95,6 +101,15 @@ export default function StaffListScreen() {
           ))
         )}
       </ScrollView>
+
+      {showAdd && (
+        <Pressable
+          style={[styles.fab, { backgroundColor: colors.gold }, shadows.elevated]}
+          onPress={() => router.push('/(tabs)/more/staff/new' as any)}
+        >
+          <Feather name="plus" size={24} color={colors.goldButtonText} />
+        </Pressable>
+      )}
     </SafeAreaView>
   );
 }
@@ -126,4 +141,14 @@ const styles = StyleSheet.create({
   cardShift: { fontSize: 12, fontFamily: 'Jost_400Regular' },
   empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 12 },
   emptyText: { fontSize: 15, fontFamily: 'Jost_400Regular' },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

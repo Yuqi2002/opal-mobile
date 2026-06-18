@@ -9,6 +9,7 @@ export const STORES: Store[] = [
     email: 'hello@opal-wv.com',
     timezone: 'America/New_York',
     taxRate: 8.875,
+    accentColor: '#8B6A4A',
     hours: {
       mon: { closed: false, open: '9:00', close: '19:00' },
       tue: { closed: false, open: '9:00', close: '19:00' },
@@ -27,6 +28,7 @@ export const STORES: Store[] = [
     email: 'hello@opal-ue.com',
     timezone: 'America/New_York',
     taxRate: 8.875,
+    accentColor: '#4A6B5A',
     hours: {
       mon: { closed: false, open: '9:00', close: '19:00' },
       tue: { closed: false, open: '9:00', close: '19:00' },
@@ -45,6 +47,7 @@ export const STORES: Store[] = [
     email: 'hello@opal-bk.com',
     timezone: 'America/New_York',
     taxRate: 8.875,
+    accentColor: '#5A5A8A',
     hours: {
       mon: { closed: false, open: '10:00', close: '20:00' },
       tue: { closed: false, open: '10:00', close: '20:00' },

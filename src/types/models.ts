@@ -30,7 +30,7 @@ export interface Staff {
   email: string;
   shift: string;
   days: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'invited';
   gold: boolean;
   rating: number | null;
   clients: number | null;
@@ -214,6 +214,7 @@ export interface Store {
   email: string;
   timezone: string;
   taxRate: number;
+  accentColor: string;
   hours: Record<string, { closed: boolean; open: string; close: string }>;
 }
 
@@ -258,6 +259,14 @@ export interface NotificationPreferences {
   preferences: Record<string, boolean>;
 }
 
+export interface CompletedService {
+  serviceId: string;
+  clientInitials: string;
+  time: string;
+  duration: number;
+  price: number;
+}
+
 export interface TurnTechState {
   techId: string;
   techName: string;
@@ -266,4 +275,6 @@ export interface TurnTechState {
   station?: number;
   queue: TurnQueueEntry[];
   gold: boolean;
+  turnsCompleted: number;
+  completedServices: CompletedService[];
 }

@@ -2,12 +2,14 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useTranslation } from '../../src/contexts/I18nContext';
 
 export default function TabLayout() {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -17,8 +19,8 @@ export default function TabLayout() {
           backgroundColor: colors.warmWhite,
           borderTopWidth: 0.5,
           borderTopColor: colors.border,
-          height: 52 + 34, // 52pt + safe area
-          paddingBottom: 34,
+          height: 52 + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 6,
         },
         tabBarActiveTintColor: colors.goldDeep,

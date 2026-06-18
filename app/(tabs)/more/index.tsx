@@ -46,10 +46,10 @@ export default function MoreScreen() {
   ];
 
   const manageItems: MenuItem[] = [
-    { key: 'clients', icon: 'users', label: t('moreClients'), route: '/(tabs)/more/clients', show: true },
-    { key: 'services', icon: 'scissors', label: t('moreServices'), route: '/(tabs)/more/services', show: true },
-    { key: 'products', icon: 'package', label: t('moreProducts'), route: '/(tabs)/more/products', show: true },
-    { key: 'staff', icon: 'user-check', label: t('moreStaff'), route: '/(tabs)/more/staff', show: true },
+    { key: 'clients', icon: 'users', label: t('moreClients'), route: '/(tabs)/more/clients', show: !isStaff(role) },
+    { key: 'services', icon: 'scissors', label: t('moreServices'), route: '/(tabs)/more/services', show: !isStaff(role) },
+    { key: 'products', icon: 'package', label: t('moreProducts'), route: '/(tabs)/more/products', show: !isStaff(role) },
+    { key: 'staff', icon: 'user-check', label: t('moreStaff'), route: '/(tabs)/more/staff', show: !isStaff(role) },
     { key: 'roles', icon: 'shield', label: t('moreRoles'), route: '/(tabs)/more/roles', show: canManageRoles(role) },
   ];
 
@@ -60,17 +60,8 @@ export default function MoreScreen() {
   ];
 
   const handleSignOut = () => {
-    Alert.alert(t('signOut'), '', [
-      { text: t('cancel'), style: 'cancel' },
-      {
-        text: t('signOut'),
-        style: 'destructive',
-        onPress: () => {
-          logout();
-          router.replace('/login');
-        },
-      },
-    ]);
+    logout();
+    router.replace('/login');
   };
 
   const renderSection = (title: string, items: MenuItem[]) => {

@@ -6,10 +6,18 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../../src/contexts/ThemeContext';
 import { useTranslation } from '../../../../src/contexts/I18nContext';
 import { FilterChips } from '../../../../src/components/FilterChips';
+import { TurnIcon, TURN_ICON_LIST, TURN_ICONS } from '../../../../src/components/TurnIcon';
 import { SERVICES, SERVICE_CATEGORIES } from '../../../../src/data/services';
 import type { Service, ServiceCategory } from '../../../../src/types/models';
 
 const CATEGORIES: ServiceCategory[] = [...SERVICE_CATEGORIES];
+
+function getAbbreviation(name: string): string {
+  if (!name) return '??';
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
 
 export default function ServiceDetailScreen() {
   const { colors } = useTheme();
@@ -56,6 +64,7 @@ export default function ServiceDetailScreen() {
   const [description, setDescription] = useState(initial.description);
   const [active, setActive] = useState(initial.active);
   const [turnIcon, setTurnIcon] = useState(initial.turnIcon);
+  const [showIconPicker, setShowIconPicker] = useState(false);
 
   const handleSave = () => {
     Alert.alert(t('save'), 'Changes saved (mock)', [{ text: t('done') }]);
@@ -134,13 +143,67 @@ export default function ServiceDetailScreen() {
           />
 
           <Text style={[styles.fieldLabel, { color: colors.charcoal }]}>Turn Icon</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: colors.creamDark, color: colors.obsidian }]}
-            value={turnIcon}
-            onChangeText={setTurnIcon}
-            placeholder="nail_polish"
-            placeholderTextColor={colors.textFaint}
-          />
+          <Pressable
+            onPress={() => setShowIconPicker(!showIconPicker)}
+            style={[
+              styles.iconTrigger,
+              { backgroundColor: colors.creamDark },
+            ]}
+          >
+            <View style={styles.iconTriggerLeft}>
+              {turnIcon ? (
+                <TurnIcon icon={turnIcon} size={20} color={colors.obsidian} />
+              ) : (
+                <View style={[styles.iconAbbrCircle, { backgroundColor: colors.border }]}>
+                  <Text style={[styles.iconAbbrText, { color: colors.textMuted }]}>
+                    {getAbbreviation(name)}
+                  </Text>
+                </View>
+              )}
+              <Text style={[styles.iconTriggerLabel, { color: turnIcon ? colors.obsidian : colors.textMuted }]}>
+                {turnIcon ? (TURN_ICONS[turnIcon]?.label ?? turnIcon) : 'None (abbreviation)'}
+              </Text>
+            </View>
+            <Feather
+              name={showIconPicker ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={colors.textMuted}
+            />
+          </Pressable>
+
+          {showIconPicker && (
+            <View style={[styles.iconGrid, { backgroundColor: colors.warmWhite, borderColor: colors.border }]}>
+              {/* None option */}
+              <Pressable
+                onPress={() => { setTurnIcon(''); setShowIconPicker(false); }}
+                style={[
+                  styles.iconBtn,
+                  { borderColor: !turnIcon ? colors.goldDeep : colors.border },
+                  !turnIcon && { backgroundColor: colors.goldSoft },
+                ]}
+              >
+                <Text style={[styles.iconAbbrSmall, { color: !turnIcon ? colors.goldDeep : colors.textMuted }]}>
+                  {getAbbreviation(name)}
+                </Text>
+              </Pressable>
+              {TURN_ICON_LIST.map((entry) => {
+                const active = turnIcon === entry.key;
+                return (
+                  <Pressable
+                    key={entry.key}
+                    onPress={() => { setTurnIcon(active ? '' : entry.key); setShowIconPicker(false); }}
+                    style={[
+                      styles.iconBtn,
+                      { borderColor: active ? colors.goldDeep : colors.border },
+                      active && { backgroundColor: colors.goldSoft },
+                    ]}
+                  >
+                    <TurnIcon icon={entry.key} size={20} color={active ? colors.goldDeep : colors.charcoal} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* Active Toggle */}
@@ -216,6 +279,57 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   toggleLabel: { fontSize: 15, fontFamily: 'Jost_500Medium' },
+
+  // Icon picker
+  iconTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+  },
+  iconTriggerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  iconTriggerLabel: {
+    fontSize: 14,
+    fontFamily: 'Jost_400Regular',
+  },
+  iconAbbrCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconAbbrText: {
+    fontSize: 10,
+    fontFamily: 'Jost_600SemiBold',
+  },
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  iconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconAbbrSmall: {
+    fontSize: 11,
+    fontFamily: 'Jost_600SemiBold',
+  },
   bottomBar: {
     paddingHorizontal: 16,
     paddingBottom: 24,
@@ -230,6 +344,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 16,
     fontFamily: 'Jost_600SemiBold',
-    color: '#FFFFFF',
+    color: '#1A1A18',
   },
 });

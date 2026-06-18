@@ -25,6 +25,7 @@ export function StatusBadge({ status, label }: StatusBadgeProps) {
     regular: { bg: colors.creamDark, text: colors.textMuted, label: 'Regular' },
     active: { bg: colors.statusConfirmedBg, text: colors.statusConfirmedText, label: 'Active' },
     inactive: { bg: colors.creamDark, text: colors.textMuted, label: 'Inactive' },
+    invited: { bg: colors.statusCheckedInBg, text: colors.statusCheckedInText, label: 'Invited' },
   };
 
   const s = statusStyles[status] ?? { bg: colors.creamDark, text: colors.textMuted, label: status };

@@ -33,4 +33,7 @@ export const dark: ThemeColors = {
   statusCancelledText: '#EF9A9A',
   statusVipBg: 'rgba(237,217,163,0.12)',
   statusVipText: '#EDD9A3',
+
+  // Fixed contrast color for text on gold buttons — always dark
+  goldButtonText: '#1A1A18',
 };
