@@ -43,6 +43,15 @@ export default function ClientDetailScreen() {
   };
 
   const initial = isNew ? empty : client;
+
+  const [first, setFirst] = useState(initial?.first ?? '');
+  const [last, setLast] = useState(initial?.last ?? '');
+  const [phone, setPhone] = useState(initial?.phone ?? '');
+  const [email, setEmail] = useState(initial?.email ?? '');
+  const [status, setStatus] = useState<ClientStatus>(initial?.status ?? 'new');
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [preferredTech, setPreferredTech] = useState(initial?.preferredTech ?? null);
+
   if (!initial) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
@@ -59,14 +68,6 @@ export default function ClientDetailScreen() {
       </SafeAreaView>
     );
   }
-
-  const [first, setFirst] = useState(initial.first);
-  const [last, setLast] = useState(initial.last);
-  const [phone, setPhone] = useState(initial.phone);
-  const [email, setEmail] = useState(initial.email);
-  const [status, setStatus] = useState<ClientStatus>(initial.status);
-  const [notes, setNotes] = useState(initial.notes);
-  const [preferredTech, setPreferredTech] = useState(initial.preferredTech);
 
   const techName = preferredTech
     ? STAFF.find((s) => s.id === preferredTech)

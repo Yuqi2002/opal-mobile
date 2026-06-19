@@ -40,6 +40,16 @@ export default function ServiceDetailScreen() {
   };
 
   const initial = isNew ? empty : service;
+
+  const [name, setName] = useState(initial?.name ?? '');
+  const [category, setCategory] = useState<ServiceCategory>(initial?.category ?? 'Manicure');
+  const [duration, setDuration] = useState(String(initial?.duration ?? 30));
+  const [price, setPrice] = useState(String(initial?.price ?? 0));
+  const [description, setDescription] = useState(initial?.description ?? '');
+  const [active, setActive] = useState(initial?.active ?? true);
+  const [turnIcon, setTurnIcon] = useState(initial?.turnIcon ?? 'nail_polish');
+  const [showIconPicker, setShowIconPicker] = useState(false);
+
   if (!initial) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
@@ -56,15 +66,6 @@ export default function ServiceDetailScreen() {
       </SafeAreaView>
     );
   }
-
-  const [name, setName] = useState(initial.name);
-  const [category, setCategory] = useState<ServiceCategory>(initial.category);
-  const [duration, setDuration] = useState(String(initial.duration));
-  const [price, setPrice] = useState(String(initial.price));
-  const [description, setDescription] = useState(initial.description);
-  const [active, setActive] = useState(initial.active);
-  const [turnIcon, setTurnIcon] = useState(initial.turnIcon);
-  const [showIconPicker, setShowIconPicker] = useState(false);
 
   const handleSave = () => {
     Alert.alert(t('save'), 'Changes saved (mock)', [{ text: t('done') }]);

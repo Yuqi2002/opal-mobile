@@ -46,6 +46,8 @@ export default function MoreScreen() {
   ];
 
   const manageItems: MenuItem[] = [
+    { key: 'my-schedule', icon: 'calendar', label: 'My Schedule', route: '/(tabs)/more/my-schedule', show: isStaff(role) },
+    { key: 'my-services', icon: 'scissors', label: 'My Services', route: '/(tabs)/more/my-services', show: isStaff(role) },
     { key: 'clients', icon: 'users', label: t('moreClients'), route: '/(tabs)/more/clients', show: !isStaff(role) },
     { key: 'services', icon: 'scissors', label: t('moreServices'), route: '/(tabs)/more/services', show: !isStaff(role) },
     { key: 'products', icon: 'package', label: t('moreProducts'), route: '/(tabs)/more/products', show: !isStaff(role) },

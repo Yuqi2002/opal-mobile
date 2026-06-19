@@ -49,6 +49,11 @@ export default function TabLayout() {
           title: t('navAppts'),
           tabBarIcon: ({ color }) => <Feather name="calendar" size={22} color={color} />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate('appointments', { screen: 'index' });
+          },
+        })}
       />
       <Tabs.Screen
         name="turns"

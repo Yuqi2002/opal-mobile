@@ -32,6 +32,15 @@ export default function ProductDetailScreen() {
   };
 
   const initial = isNew ? empty : product;
+
+  const [name, setName] = useState(initial?.name ?? '');
+  const [category, setCategory] = useState<ProductCategory>(initial?.category ?? 'Polish');
+  const [price, setPrice] = useState(String(initial?.price ?? 0));
+  const [sku, setSku] = useState(initial?.sku ?? '');
+  const [stock, setStock] = useState(String(initial?.stock ?? 0));
+  const [active, setActive] = useState(initial?.active ?? true);
+  const [description, setDescription] = useState(initial?.description ?? '');
+
   if (!initial) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
@@ -48,14 +57,6 @@ export default function ProductDetailScreen() {
       </SafeAreaView>
     );
   }
-
-  const [name, setName] = useState(initial.name);
-  const [category, setCategory] = useState<ProductCategory>(initial.category);
-  const [price, setPrice] = useState(String(initial.price));
-  const [sku, setSku] = useState(initial.sku);
-  const [stock, setStock] = useState(String(initial.stock));
-  const [active, setActive] = useState(initial.active);
-  const [description, setDescription] = useState(initial.description);
 
   const handleSave = () => {
     Alert.alert(t('save'), 'Changes saved (mock)', [{ text: t('done') }]);

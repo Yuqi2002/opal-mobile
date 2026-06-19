@@ -3,7 +3,7 @@ import type { ThemeColors } from './light';
 export const dark: ThemeColors = {
   cream: '#1C1C1A',
   creamDark: '#141412',
-  warmWhite: '#242422',
+  warmWhite: '#383835',
   obsidian: '#F5F0E8',
   charcoal: '#D4D0C8',
   textMuted: '#8C8C84',

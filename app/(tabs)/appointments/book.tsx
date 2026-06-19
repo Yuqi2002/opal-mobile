@@ -28,8 +28,9 @@ import { useStore } from '../../../src/contexts/StoreContext';
 import { BOOKING_CLIENTS } from '../../../src/data/clients';
 import { SERVICES, SERVICE_CATEGORIES, APPT_TYPES } from '../../../src/data/services';
 import { CALENDAR_STAFF } from '../../../src/data/staff';
+import { getStaffAppointments, addAppointment } from '../../../src/data/appointments';
 import { STORES } from '../../../src/data/stores';
-import { fmtKey, fmtTime, DAY_START_MIN, DAY_END_MIN } from '../../../src/utils/time';
+import { fmtKey, fmtTime, formatDate, DAY_START_MIN, DAY_END_MIN } from '../../../src/utils/time';
 import { fmtCurrency } from '../../../src/utils/currency';
 import { isStaff, canBookForOthers } from '../../../src/utils/permissions';
 import { Avatar } from '../../../src/components/Avatar';
@@ -171,6 +172,7 @@ interface ServiceConfig {
   serviceId: string;
   techId: string | null;
   time: number | null;
+  date?: string;
 }
 
 function ServiceConfigSheet({
@@ -194,6 +196,43 @@ function ServiceConfigSheet({
   const userRole = user?.role ?? 'r04';
   const staffUser = isStaff(userRole);
 
+  // ─── Date state ────────────────────────
+  const todayKey = fmtKey(new Date());
+  const [dateKey, setDateKey] = useState<string>(selectedDate ?? todayKey);
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  const dateObj = useMemo(() => new Date(dateKey + 'T00:00:00'), [dateKey]);
+  const [calMonth, setCalMonth] = useState(dateObj.getMonth());
+  const [calYear, setCalYear] = useState(dateObj.getFullYear());
+
+  const stepDate = (delta: number) => {
+    const d = new Date(dateKey + 'T00:00:00');
+    d.setDate(d.getDate() + delta);
+    const newKey = fmtKey(d);
+    if (newKey < todayKey) return;
+    setDateKey(newKey);
+    setCalMonth(d.getMonth());
+    setCalYear(d.getFullYear());
+  };
+
+  const handleDateSelect = (key: string) => {
+    setDateKey(key);
+    setShowCalendar(false);
+    const d = new Date(key + 'T00:00:00');
+    setCalMonth(d.getMonth());
+    setCalYear(d.getFullYear());
+  };
+
+  const prevCalMonth = () => {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); }
+    else setCalMonth(calMonth - 1);
+  };
+  const nextCalMonth = () => {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); }
+    else setCalMonth(calMonth + 1);
+  };
+
+  // ─── Tech state ────────────────────────
   const [techId, setTechId] = useState<string | null>(
     config.techId ?? (staffUser && user ? user.id : null)
   );
@@ -215,6 +254,36 @@ function ServiceConfigSheet({
 
   const selectedTechData = techId ? CALENDAR_STAFF.find((t) => t.id === techId) : null;
 
+  // ─── Schedule data ────────────────────
+  const HOUR_PX = 100;
+  const techShift = selectedTechData?.shift;
+  const shiftStartMin = techShift ? techShift[0] * 60 : DAY_START_MIN;
+  const shiftEndMin = techShift ? techShift[1] * 60 : DAY_END_MIN;
+  const totalHeight = ((shiftEndMin - shiftStartMin) / 60) * HOUR_PX;
+
+  const existingAppts = useMemo(() => {
+    if (!techId) return [];
+    return getStaffAppointments(dateKey, techId);
+  }, [techId, dateKey]);
+
+  const hours = useMemo(() => {
+    const h: number[] = [];
+    const startH = Math.floor(shiftStartMin / 60);
+    const endH = Math.ceil(shiftEndMin / 60);
+    for (let i = startH; i <= endH; i++) h.push(i);
+    return h;
+  }, [shiftStartMin, shiftEndMin]);
+
+  const wouldOverlap = useCallback((startMin: number) => {
+    const endMin = startMin + service.duration;
+    return existingAppts.some(
+      (a) => startMin < a.endMin && endMin > a.startMin
+    );
+  }, [existingAppts, service.duration]);
+
+  const slotCount = Math.floor((shiftEndMin - shiftStartMin) / 15);
+  const slotHeight = (15 / 60) * HOUR_PX;
+
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={[s.safe, { backgroundColor: colors.cream }]} edges={['top']}>
@@ -229,209 +298,347 @@ function ServiceConfigSheet({
           <View style={s.backBtn} />
         </View>
 
-        <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
-          {/* Service info */}
-          <View style={s.formSection}>
-            <View style={[s.configServiceInfo, { backgroundColor: colors.warmWhite }, shadows.card]}>
-              <Text style={[s.configServiceName, { color: colors.obsidian }]}>{service.name}</Text>
-              <Text style={[s.configServiceMeta, { color: colors.textMuted }]}>
-                {service.duration} {t('mins')} · {fmtCurrency(service.price)}
+        {/* Service info bar */}
+        <View style={[scs.serviceBar, { backgroundColor: colors.warmWhite }]}>
+          <Text style={[scs.serviceBarName, { color: colors.obsidian }]}>{service.name}</Text>
+          <Text style={[scs.serviceBarMeta, { color: colors.textMuted }]}>
+            {service.duration} {t('mins')} · {fmtCurrency(service.price)}
+          </Text>
+        </View>
+
+        {/* Date Picker Row */}
+        <View style={[scs.dateRow, { borderBottomColor: colors.border }]}>
+          <Pressable
+            onPress={() => stepDate(-1)}
+            style={scs.dateStepBtn}
+            disabled={dateKey <= todayKey}
+          >
+            <Feather
+              name="chevron-left"
+              size={20}
+              color={dateKey <= todayKey ? colors.textFaint : colors.obsidian}
+            />
+          </Pressable>
+          <Pressable
+            onPress={() => setShowCalendar(!showCalendar)}
+            style={scs.dateLabelBtn}
+          >
+            <Text style={[scs.dateLabel, { color: colors.obsidian }]}>
+              {formatDate(dateObj)}
+            </Text>
+            <Feather
+              name={showCalendar ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.textMuted}
+            />
+          </Pressable>
+          <Pressable onPress={() => stepDate(1)} style={scs.dateStepBtn}>
+            <Feather name="chevron-right" size={20} color={colors.obsidian} />
+          </Pressable>
+        </View>
+
+        {/* Calendar dropdown */}
+        {showCalendar && (
+          <View
+            style={[
+              scs.calDropdown,
+              { backgroundColor: colors.warmWhite, borderBottomColor: colors.border },
+            ]}
+          >
+            <View style={s.monthNav}>
+              <Pressable onPress={prevCalMonth} style={s.monthNavBtn}>
+                <Feather name="chevron-left" size={20} color={colors.obsidian} />
+              </Pressable>
+              <Text style={[s.monthNavLabel, { color: colors.obsidian }]}>
+                {MONTHS[calMonth]} {calYear}
+              </Text>
+              <Pressable onPress={nextCalMonth} style={s.monthNavBtn}>
+                <Feather name="chevron-right" size={20} color={colors.obsidian} />
+              </Pressable>
+            </View>
+            <CalendarMonth
+              year={calYear}
+              month={calMonth}
+              selectedDate={dateKey}
+              onSelectDate={handleDateSelect}
+              todayKey={todayKey}
+            />
+          </View>
+        )}
+
+        {/* Technician selector */}
+        <View style={[scs.techSection, { borderBottomColor: colors.border }]}>
+          {staffUser && user ? (
+            <View style={[scs.techChip, { backgroundColor: colors.warmWhite }]}>
+              <Avatar initials={user.initials} gold={user.gold} size="compact" />
+              <Text style={[scs.techChipName, { color: colors.obsidian }]}>
+                {user.first} {user.last}
               </Text>
             </View>
-          </View>
+          ) : (
+            <View>
+              <Pressable
+                onPress={() => setShowTechDropdown(!showTechDropdown)}
+                style={[
+                  scs.techTrigger,
+                  { backgroundColor: colors.warmWhite, borderColor: colors.border },
+                ]}
+              >
+                {selectedTechData ? (
+                  <View style={s.techTriggerContent}>
+                    <Avatar
+                      initials={selectedTechData.initials}
+                      gold={selectedTechData.gold}
+                      size="compact"
+                    />
+                    <Text style={[s.techDropdownName, { color: colors.obsidian }]}>
+                      {selectedTechData.first} {selectedTechData.last}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={s.techTriggerContent}>
+                    <Feather name="users" size={16} color={colors.textMuted} />
+                    <Text style={[s.placeholderText, { color: colors.textMuted }]}>
+                      {t('bkAnyAvailable')}
+                    </Text>
+                  </View>
+                )}
+                <Feather
+                  name={showTechDropdown ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={colors.textMuted}
+                />
+              </Pressable>
 
-          {/* Technician */}
-          <View style={s.formSection}>
-            <View style={s.sectionHeader}>
-              <SectionNumber num="01" />
-              <Text style={[s.sectionTitle, { color: colors.obsidian }]}>{t('bkTechnician')}</Text>
-            </View>
-
-            {staffUser && user ? (
-              <View style={[s.techCard, { backgroundColor: colors.warmWhite }, shadows.card]}>
-                <Avatar initials={user.initials} gold={user.gold} size="list" />
-                <Text style={[s.techCardName, { color: colors.obsidian }]}>
-                  {user.first} {user.last}
-                </Text>
-                <View style={[s.techLocked, { backgroundColor: colors.creamDark }]}>
-                  <Text style={[s.techLockedText, { color: colors.textMuted }]}>Your schedule</Text>
-                </View>
-              </View>
-            ) : (
-              <View>
-                <Pressable
-                  onPress={() => setShowTechDropdown(!showTechDropdown)}
+              {showTechDropdown && (
+                <View
                   style={[
-                    s.dropdownTrigger,
-                    {
-                      backgroundColor: colors.warmWhite,
-                      borderColor: colors.border,
-                    },
-                    shadows.card,
+                    s.dropdown,
+                    { backgroundColor: colors.warmWhite, borderColor: colors.border },
+                    shadows.elevated,
                   ]}
                 >
-                  {selectedTechData ? (
-                    <View style={s.techTriggerContent}>
-                      <Avatar initials={selectedTechData.initials} gold={selectedTechData.gold} size="compact" />
-                      <Text style={[s.techDropdownName, { color: colors.obsidian }]}>
-                        {selectedTechData.first} {selectedTechData.last}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={s.techTriggerContent}>
-                      <Feather name="users" size={16} color={colors.textMuted} />
-                      <Text style={[s.placeholderText, { color: colors.textMuted }]}>
-                        {t('bkAnyAvailable')}
-                      </Text>
-                    </View>
-                  )}
-                  <Feather
-                    name={showTechDropdown ? 'chevron-up' : 'chevron-down'}
-                    size={18}
-                    color={colors.textMuted}
-                  />
-                </Pressable>
+                  <View style={[s.techSearchRow, { borderBottomColor: colors.border }]}>
+                    <Feather name="search" size={14} color={colors.textMuted} style={{ marginRight: 8 }} />
+                    <TextInput
+                      style={[s.techSearchInput, { color: colors.obsidian }]}
+                      value={techSearch}
+                      onChangeText={setTechSearch}
+                      placeholder="Search technicians..."
+                      placeholderTextColor={colors.textMuted}
+                      autoFocus
+                    />
+                    {techSearch.length > 0 && (
+                      <Pressable onPress={() => setTechSearch('')}>
+                        <Feather name="x" size={14} color={colors.textMuted} />
+                      </Pressable>
+                    )}
+                  </View>
 
-                {showTechDropdown && (
-                  <View
-                    style={[
-                      s.dropdown,
-                      { backgroundColor: colors.warmWhite, borderColor: colors.border },
-                      shadows.elevated,
-                    ]}
-                  >
-                    {/* Search input */}
-                    <View style={[s.techSearchRow, { borderBottomColor: colors.border }]}>
-                      <Feather name="search" size={14} color={colors.textMuted} style={{ marginRight: 8 }} />
-                      <TextInput
-                        style={[s.techSearchInput, { color: colors.obsidian }]}
-                        value={techSearch}
-                        onChangeText={setTechSearch}
-                        placeholder="Search technicians..."
-                        placeholderTextColor={colors.textMuted}
-                        autoFocus
-                      />
-                      {techSearch.length > 0 && (
-                        <Pressable onPress={() => setTechSearch('')}>
-                          <Feather name="x" size={14} color={colors.textMuted} />
-                        </Pressable>
+                  {!techSearch && (
+                    <Pressable
+                      onPress={() => {
+                        setTechId(null);
+                        setShowTechDropdown(false);
+                        setTechSearch('');
+                      }}
+                      style={[
+                        s.dropdownItem,
+                        { borderBottomColor: colors.border },
+                        techId === null && { backgroundColor: colors.goldSoft },
+                      ]}
+                    >
+                      <View style={s.techTriggerContent}>
+                        <Feather name="users" size={14} color={colors.textMuted} />
+                        <Text style={[s.dropdownItemName, { color: colors.textMuted }]}>
+                          {t('bkAnyAvailable')}
+                        </Text>
+                      </View>
+                      {techId === null && (
+                        <Feather name="check" size={14} color={colors.goldDeep} />
                       )}
-                    </View>
+                    </Pressable>
+                  )}
 
-                    {/* Any Available option */}
-                    {!techSearch && (
+                  {filteredTechs.map((tech) => {
+                    const active = techId === tech.id;
+                    return (
                       <Pressable
+                        key={tech.id}
                         onPress={() => {
-                          setTechId(null);
+                          setTechId(tech.id);
                           setShowTechDropdown(false);
                           setTechSearch('');
                         }}
                         style={[
                           s.dropdownItem,
                           { borderBottomColor: colors.border },
-                          techId === null && { backgroundColor: colors.goldSoft },
+                          active && { backgroundColor: colors.goldSoft },
                         ]}
                       >
                         <View style={s.techTriggerContent}>
-                          <Feather name="users" size={14} color={colors.textMuted} />
-                          <Text style={[s.dropdownItemName, { color: colors.textMuted }]}>
-                            {t('bkAnyAvailable')}
+                          <Avatar initials={tech.initials} gold={tech.gold} size="compact" />
+                          <Text style={[s.dropdownItemName, { color: colors.obsidian }]}>
+                            {tech.first} {tech.last}
                           </Text>
                         </View>
-                        {techId === null && <Feather name="check" size={14} color={colors.goldDeep} />}
+                        {active && <Feather name="check" size={14} color={colors.goldDeep} />}
                       </Pressable>
-                    )}
+                    );
+                  })}
 
-                    {/* Tech list */}
-                    {filteredTechs.map((tech) => {
-                      const active = techId === tech.id;
-                      return (
-                        <Pressable
-                          key={tech.id}
-                          onPress={() => {
-                            setTechId(tech.id);
-                            setShowTechDropdown(false);
-                            setTechSearch('');
-                          }}
-                          style={[
-                            s.dropdownItem,
-                            { borderBottomColor: colors.border },
-                            active && { backgroundColor: colors.goldSoft },
-                          ]}
-                        >
-                          <View style={s.techTriggerContent}>
-                            <Avatar initials={tech.initials} gold={tech.gold} size="compact" />
-                            <Text style={[s.dropdownItemName, { color: colors.obsidian }]}>
-                              {tech.first} {tech.last}
-                            </Text>
-                          </View>
-                          {active && <Feather name="check" size={14} color={colors.goldDeep} />}
-                        </Pressable>
-                      );
-                    })}
+                  {filteredTechs.length === 0 && techSearch.length > 0 && (
+                    <View style={s.techNoResults}>
+                      <Text style={[s.techNoResultsText, { color: colors.textMuted }]}>
+                        No technicians found
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+        </View>
 
-                    {filteredTechs.length === 0 && techSearch.length > 0 && (
-                      <View style={s.techNoResults}>
-                        <Text style={[s.techNoResultsText, { color: colors.textMuted }]}>
-                          No technicians found
-                        </Text>
-                      </View>
+        {/* Schedule Column */}
+        {techId ? (
+          <ScrollView
+            style={scs.scheduleScroll}
+            contentContainerStyle={scs.scheduleContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={[scs.scheduleTitle, { color: colors.textMuted }]}>
+              Tap to select a time slot
+            </Text>
+            <View style={{ height: totalHeight, position: 'relative' }}>
+              {/* Tappable 15-min slots */}
+              {Array.from({ length: slotCount }).map((_, i) => {
+                const slotMin = shiftStartMin + i * 15;
+                const top = ((slotMin - shiftStartMin) / 60) * HOUR_PX;
+                const isOccupied = existingAppts.some(
+                  (a) => slotMin >= a.startMin && slotMin < a.endMin
+                );
+                return (
+                  <Pressable
+                    key={slotMin}
+                    onPress={() => {
+                      if (!isOccupied && !wouldOverlap(slotMin)) {
+                        setTime(slotMin);
+                      }
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: 62,
+                      right: 0,
+                      top,
+                      height: slotHeight,
+                    }}
+                  />
+                );
+              })}
+
+              {/* Hour lines + labels */}
+              {hours.map((hour) => {
+                const top = ((hour * 60 - shiftStartMin) / 60) * HOUR_PX;
+                return (
+                  <View
+                    key={hour}
+                    style={[scs.hourRow, { top }]}
+                    pointerEvents="none"
+                  >
+                    <Text style={[scs.hourLabel, { color: colors.textFaint }]}>
+                      {fmtTime(hour * 60)}
+                    </Text>
+                    <View style={[scs.hourLine, { backgroundColor: colors.border }]} />
+                  </View>
+                );
+              })}
+
+              {/* Existing appointments */}
+              {existingAppts.map((appt) => {
+                const top = ((appt.startMin - shiftStartMin) / 60) * HOUR_PX;
+                const height = Math.max(
+                  ((appt.endMin - appt.startMin) / 60) * HOUR_PX,
+                  24
+                );
+                return (
+                  <View
+                    key={appt.id}
+                    style={[
+                      scs.apptBlock,
+                      {
+                        top,
+                        height,
+                        backgroundColor: colors.creamDark,
+                        borderLeftColor: colors.textMuted,
+                      },
+                    ]}
+                    pointerEvents="none"
+                  >
+                    <Text
+                      style={[scs.apptBlockClient, { color: colors.charcoal }]}
+                      numberOfLines={1}
+                    >
+                      {appt.client}
+                    </Text>
+                    {height > 30 && (
+                      <Text
+                        style={[scs.apptBlockService, { color: colors.textMuted }]}
+                        numberOfLines={1}
+                      >
+                        {appt.service}
+                      </Text>
                     )}
                   </View>
-                )}
-              </View>
-            )}
-          </View>
+                );
+              })}
 
-          {/* Time */}
-          <View style={s.formSection}>
-            <View style={s.sectionHeader}>
-              <SectionNumber num="02" />
-              <Text style={[s.sectionTitle, { color: colors.obsidian }]}>Time</Text>
+              {/* New appointment preview */}
+              {time != null && (
+                <View
+                  style={[
+                    scs.newApptBlock,
+                    {
+                      top: ((time - shiftStartMin) / 60) * HOUR_PX,
+                      height: Math.max((service.duration / 60) * HOUR_PX, 24),
+                      backgroundColor: colors.goldSoft,
+                      borderLeftColor: colors.goldDeep,
+                    },
+                  ]}
+                  pointerEvents="none"
+                >
+                  <Text
+                    style={[scs.newApptName, { color: colors.goldDeep }]}
+                    numberOfLines={1}
+                  >
+                    {service.name}
+                  </Text>
+                  <Text style={[scs.newApptTime, { color: colors.goldDeep }]}>
+                    {fmtTime(time)} – {fmtTime(time + service.duration)}
+                  </Text>
+                </View>
+              )}
             </View>
-
-            {!selectedDate ? (
-              <Text style={[s.hintText, { color: colors.textMuted }]}>
-                Select a date first to see available times.
-              </Text>
-            ) : (
-              <View style={s.timeGrid}>
-                {TIME_SLOTS.map((min) => {
-                  const active = time === min;
-                  return (
-                    <Pressable
-                      key={min}
-                      onPress={() => setTime(min)}
-                      style={[
-                        s.timeSlot,
-                        active
-                          ? { backgroundColor: colors.obsidian }
-                          : { backgroundColor: colors.warmWhite, borderWidth: 1, borderColor: colors.border },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          s.timeSlotText,
-                          { color: active ? colors.warmWhite : colors.charcoal },
-                        ]}
-                      >
-                        {fmtTime(min)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
+          </ScrollView>
+        ) : (
+          <View style={scs.noTechHint}>
+            <Feather name="calendar" size={32} color={colors.textFaint} />
+            <Text style={[scs.noTechHintText, { color: colors.textMuted }]}>
+              Select a technician to view their schedule
+            </Text>
           </View>
-
-          <View style={s.bottomSpacer} />
-        </ScrollView>
+        )}
 
         {/* Save button */}
-        <View style={[s.bottomBar, { backgroundColor: colors.cream, borderTopColor: colors.border }]}>
+        <View
+          style={[
+            s.bottomBar,
+            { backgroundColor: colors.cream, borderTopColor: colors.border },
+          ]}
+        >
           <Pressable
             onPress={() =>
-              onSave({ serviceId: service.id, techId, time })
+              onSave({ serviceId: service.id, techId, time, date: dateKey })
             }
             style={[s.confirmBtn, { backgroundColor: colors.goldDeep }]}
           >
@@ -444,6 +651,166 @@ function ServiceConfigSheet({
     </Modal>
   );
 }
+
+// ─── Service Config Styles ────────────────────────────
+
+const scs = StyleSheet.create({
+  serviceBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  serviceBarName: {
+    fontSize: 14,
+    fontFamily: 'Jost_500Medium',
+  },
+  serviceBarMeta: {
+    fontSize: 12,
+    fontFamily: 'Jost_400Regular',
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  dateStepBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateLabelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  dateLabel: {
+    fontSize: 15,
+    fontFamily: 'Jost_500Medium',
+  },
+  calDropdown: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  techSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  techChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  techChipName: {
+    fontSize: 14,
+    fontFamily: 'Jost_500Medium',
+  },
+  techTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+  },
+  scheduleScroll: {
+    flex: 1,
+  },
+  scheduleContent: {
+    paddingLeft: 4,
+    paddingRight: 16,
+    paddingTop: 8,
+    paddingBottom: 40,
+  },
+  hourRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  hourLabel: {
+    width: 56,
+    fontSize: 10,
+    fontFamily: 'Jost_400Regular',
+    textAlign: 'right',
+    paddingRight: 8,
+  },
+  hourLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  apptBlock: {
+    position: 'absolute',
+    left: 62,
+    right: 0,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  apptBlockClient: {
+    fontSize: 12,
+    fontFamily: 'Jost_500Medium',
+  },
+  apptBlockService: {
+    fontSize: 11,
+    fontFamily: 'Jost_400Regular',
+  },
+  newApptBlock: {
+    position: 'absolute',
+    left: 62,
+    right: 0,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  newApptName: {
+    fontSize: 12,
+    fontFamily: 'Jost_600SemiBold',
+  },
+  newApptTime: {
+    fontSize: 11,
+    fontFamily: 'Jost_400Regular',
+  },
+  noTechHint: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 32,
+  },
+  scheduleTitle: {
+    fontSize: 12,
+    fontFamily: 'Jost_500Medium',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+    paddingLeft: 62,
+  },
+  noTechHintText: {
+    fontSize: 14,
+    fontFamily: 'Jost_400Regular',
+    textAlign: 'center',
+  },
+});
 
 // ─── Main Booking Screen ───────────────────────────────
 
@@ -566,6 +933,7 @@ export default function BookScreen() {
 
   const handleServiceConfigSave = (cfg: ServiceConfig) => {
     setServiceConfigs((prev) => ({ ...prev, [cfg.serviceId]: cfg }));
+    if (cfg.date) setSelectedDate(cfg.date);
     setConfiguringService(null);
   };
 
@@ -579,12 +947,84 @@ export default function BookScreen() {
       return;
     }
 
-    const storeName = selectedStore?.name ?? '';
+    const clientName = selectedClient!.name;
+    const clientVip = selectedClient!.vip;
+
+    if (selectedServices.length === 1) {
+      // ─── Single-service appointment ───
+      const svc = selectedServices[0];
+      const cfg = serviceConfigs[svc.id];
+      const techId = cfg?.techId ?? user?.id ?? 'sofia';
+      const startMin = cfg?.time ?? DAY_START_MIN;
+
+      addAppointment({
+        staffId: techId,
+        date: selectedDate,
+        startMin,
+        endMin: startMin + svc.duration,
+        client: clientName,
+        service: svc.name,
+        serviceKey: svc.id,
+        status: 'confirmed',
+        vip: clientVip,
+        apptType: selectedApptType as any,
+        notes: notes || null,
+        price: svc.price,
+      });
+    } else {
+      // ─── Multi-service appointment ───
+      const allTechIds = new Set<string>();
+      let earliestStart = DAY_END_MIN;
+      let latestEnd = DAY_START_MIN;
+
+      const apptServices = selectedServices.map((svc) => {
+        const cfg = serviceConfigs[svc.id];
+        const techId = cfg?.techId ?? user?.id ?? 'sofia';
+        const techData = CALENDAR_STAFF.find((t) => t.id === techId);
+        const startMin = cfg?.time ?? DAY_START_MIN;
+        const endMin = startMin + svc.duration;
+
+        allTechIds.add(techId);
+        if (startMin < earliestStart) earliestStart = startMin;
+        if (endMin > latestEnd) latestEnd = endMin;
+
+        return {
+          name: svc.name,
+          price: svc.price,
+          techId,
+          techName: techData ? `${techData.first} ${techData.last}` : 'Staff',
+          startMin,
+          endMin,
+          mins: svc.duration,
+        };
+      });
+
+      const primaryTechId = apptServices[0].techId;
+      const compositeName = selectedServices.map((sv) => sv.name).join(' + ');
+
+      addAppointment({
+        staffId: primaryTechId,
+        staffIds: Array.from(allTechIds),
+        date: selectedDate,
+        startMin: earliestStart,
+        endMin: latestEnd,
+        client: clientName,
+        service: compositeName,
+        serviceKey: 'multi',
+        status: 'confirmed',
+        vip: clientVip,
+        apptType: selectedApptType as any,
+        notes: notes || null,
+        price: totalPrice,
+        services: apptServices,
+      });
+    }
+
     Alert.alert(
       'Booking Confirmed',
-      `${storeName} — ${selectedClient!.name}\n${selectedServices.map((sv) => sv.name).join(', ')}\n${selectedDate}`,
-      [{ text: 'OK', onPress: () => router.back() }]
+      `${clientName} — ${selectedServices.map((sv) => sv.name).join(', ')}\n${selectedDate}`
     );
+    router.replace('/(tabs)/appointments');
   };
 
   const apptTypes = APPT_TYPES.filter((a) => a.key !== 'misc' && a.key !== 'walk-in');
@@ -595,7 +1035,9 @@ export default function BookScreen() {
     <SafeAreaView style={[s.safe, { backgroundColor: colors.cream }]} edges={['top']}>
       {/* Navigation Bar */}
       <View style={s.navBar}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
+        <Pressable onPress={() => {
+          router.replace('/(tabs)/appointments');
+        }} style={s.backBtn}>
           <Feather name="x" size={22} color={colors.obsidian} />
         </Pressable>
         <Text style={[s.navTitle, { color: colors.obsidian }]}>{t('bkTitle')}</Text>

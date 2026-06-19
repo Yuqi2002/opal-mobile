@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
@@ -22,9 +23,9 @@ import {
   MONTHLY_REVENUE,
   TOP_PERFORMERS,
   OPS_DATA,
-  STAFF_EARNINGS,
 } from '../../src/data/reports';
 import { getTodayAppointments, getStaffAppointments } from '../../src/data/appointments';
+import { STAFF_MAP } from '../../src/data/staff';
 import { generateTurnQueueState } from '../../src/data/turns';
 import { StorePicker } from '../../src/components/StorePicker';
 import { SectionHeader } from '../../src/components/SectionHeader';
@@ -43,6 +44,166 @@ function greetingKey(t: (k: string) => string): string {
   if (h >= 5 && h < 12) return t('greetMorning');
   if (h >= 12 && h < 17) return t('greetAfternoon');
   return t('greetEvening');
+}
+
+/** Convert a hex color to rgba with the given alpha (for gradient fade) */
+function withAlpha(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+const SCHEDULE_LIST_HEIGHT = 450;
+const FADE_HEIGHT = 60;
+
+// ─── Shared Schedule List (staff + receptionist) ────────
+
+import type { Appointment } from '../../src/types/models';
+
+function ScheduleList({
+  appointments,
+  showTech,
+  t,
+}: {
+  appointments: Appointment[];
+  showTech?: boolean;
+  t: (k: string) => string;
+}) {
+  const { colors, mode } = useTheme();
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+
+  // High-contrast card text — theme tokens are too muted in dark mode
+  const cardText = mode === 'dark' ? '#FFFFFF' : colors.obsidian;
+  const cardGold = mode === 'dark' ? '#F5DFA0' : colors.goldDeep;
+
+  return (
+    <View style={{ height: SCHEDULE_LIST_HEIGHT }}>
+      {appointments.length === 0 ? (
+        <View style={styles.emptyList}>
+          <Feather name="sun" size={28} color={colors.textFaint} />
+          <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+            No upcoming appointments for today
+          </Text>
+        </View>
+      ) : (
+        <>
+          <ScrollView
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: FADE_HEIGHT }}
+          >
+            <View style={styles.timeline}>
+              {appointments.map((appt, i) => {
+                const isCurrent =
+                  appt.startMin <= nowMin && appt.endMin > nowMin;
+                const techName =
+                  showTech && appt.staffId
+                    ? STAFF_MAP[appt.staffId]
+                      ? `${STAFF_MAP[appt.staffId].first} ${STAFF_MAP[appt.staffId].last}`
+                      : null
+                    : null;
+
+                return (
+                  <View key={appt.id} style={styles.timelineRow}>
+                    {/* Time rail */}
+                    <View style={styles.timelineRail}>
+                      <View
+                        style={[
+                          styles.timelineDot,
+                          {
+                            backgroundColor: isCurrent
+                              ? colors.gold
+                              : colors.charcoal,
+                          },
+                        ]}
+                      />
+                      {i < appointments.length - 1 && (
+                        <View
+                          style={[
+                            styles.timelineLine,
+                            { backgroundColor: colors.border },
+                          ]}
+                        />
+                      )}
+                    </View>
+
+                    {/* Card */}
+                    <Card
+                      style={[
+                        styles.scheduleCard,
+                        isCurrent
+                          ? {
+                              borderLeftWidth: 3,
+                              borderLeftColor: colors.gold,
+                            }
+                          : undefined,
+                      ] as any}
+                    >
+                      <View style={styles.scheduleCardHeader}>
+                        <Text
+                          style={[
+                            styles.scheduleTime,
+                            {
+                              color: isCurrent ? cardGold : cardText,
+                            },
+                          ]}
+                        >
+                          {fmtTime(appt.startMin)} - {fmtTime(appt.endMin)}
+                        </Text>
+                        <StatusBadge status={appt.status} />
+                      </View>
+                      <Text
+                        style={[
+                          styles.scheduleClient,
+                          { color: cardGold },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {appt.client}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.scheduleService,
+                          { color: cardText },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {appt.service}
+                      </Text>
+                      {techName && (
+                        <View style={styles.scheduleTechRow}>
+                          <Feather
+                            name="user"
+                            size={11}
+                            color={cardText}
+                          />
+                          <Text
+                            style={[
+                              styles.scheduleTechName,
+                              { color: cardText },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {techName}
+                          </Text>
+                        </View>
+                      )}
+                    </Card>
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+          <LinearGradient
+            colors={[withAlpha(colors.cream, 0), colors.cream]}
+            style={styles.listFade}
+            pointerEvents="none"
+          />
+        </>
+      )}
+    </View>
+  );
 }
 
 // ─── Owner Home ─────────────────────────────────────────
@@ -221,7 +382,7 @@ function OwnerHome() {
                   borderColor: colors.borderStrong,
                 },
               ]}
-              onPress={() => router.push('/(tabs)/more')}
+              onPress={() => router.push('/(tabs)/more/reports')}
             >
               <Feather name="bar-chart-2" size={16} color={colors.charcoal} />
               <Text style={[styles.actionText, { color: colors.charcoal }]}>
@@ -245,16 +406,14 @@ function ReceptionistHome() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const todayAppts = useMemo(() => getTodayAppointments(), []);
+  const todayAppts = getTodayAppointments();
 
-  // Sort by start time, take next upcoming (after "now" approximation)
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   const upcoming = useMemo(
     () =>
       todayAppts
-        .filter((a) => a.startMin >= nowMin && a.status !== 'finished')
-        .sort((a, b) => a.startMin - b.startMin)
-        .slice(0, 4),
+        .filter((a) => a.status !== 'finished' && a.endMin >= nowMin)
+        .sort((a, b) => a.startMin - b.startMin),
     [todayAppts, nowMin]
   );
 
@@ -307,51 +466,10 @@ function ReceptionistHome() {
         ))}
       </View>
 
-      {/* Up Next */}
+      {/* Today's Appointments */}
       <View style={styles.section}>
-        <SectionHeader title={t('dashUpNext')} showFilament />
-        {upcoming.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {t('apptNoAppointments')}
-            </Text>
-          </Card>
-        ) : (
-          upcoming.map((appt) => (
-            <Card key={appt.id} style={styles.apptCard}>
-              <View style={styles.apptCardRow}>
-                <View style={styles.apptTimeCol}>
-                  <Text style={[styles.apptTime, { color: colors.goldDeep }]}>
-                    {fmtTime(appt.startMin)}
-                  </Text>
-                  <Text style={[styles.apptDuration, { color: colors.textFaint }]}>
-                    {appt.endMin - appt.startMin} {t('mins')}
-                  </Text>
-                </View>
-                <View style={styles.apptInfoCol}>
-                  <Text
-                    style={[styles.apptClient, { color: colors.obsidian }]}
-                    numberOfLines={1}
-                  >
-                    {appt.client}
-                  </Text>
-                  <Text
-                    style={[styles.apptService, { color: colors.textMuted }]}
-                    numberOfLines={1}
-                  >
-                    {appt.service}
-                  </Text>
-                </View>
-                <StatusBadge status={appt.status} />
-              </View>
-              {appt.vip && (
-                <View style={styles.apptVip}>
-                  <StatusBadge status="vip" />
-                </View>
-              )}
-            </Card>
-          ))
-        )}
+        <SectionHeader title={`${t('dashUpNext')} · ${t('today')}`} showFilament />
+        <ScheduleList appointments={upcoming} showTech t={t} />
       </View>
 
       {/* Waiting Queue */}
@@ -390,6 +508,185 @@ function ReceptionistHome() {
   );
 }
 
+// ─── Clock In / Out Card ───────────────────────────────
+
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  interpolateColor,
+  Easing,
+} from 'react-native-reanimated';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function ClockCard() {
+  const { colors } = useTheme();
+  const [clockedIn, setClockedIn] = useState(false);
+  const [clockInTime, setClockInTime] = useState<Date | null>(null);
+  const [elapsed, setElapsed] = useState('0h 0m');
+
+  // Shared values for animations
+  const progress = useSharedValue(0); // 0 = clocked out, 1 = clocked in
+  const cardScale = useSharedValue(1);
+  const btnScale = useSharedValue(1);
+  const iconRotate = useSharedValue(0);
+  const textOpacity = useSharedValue(1);
+  const pulseScale = useSharedValue(0); // for the ring pulse
+
+  useEffect(() => {
+    if (!clockedIn || !clockInTime) return;
+    const tick = () => {
+      const diff = Date.now() - clockInTime.getTime();
+      const h = Math.floor(diff / 3_600_000);
+      const m = Math.floor((diff % 3_600_000) / 60_000);
+      setElapsed(`${h}h ${m}m`);
+    };
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, [clockedIn, clockInTime]);
+
+  const handlePress = () => {
+    // Button bounce
+    btnScale.value = withSequence(
+      withSpring(0.88, { damping: 15, stiffness: 400 }),
+      withSpring(1, { damping: 12, stiffness: 300 })
+    );
+
+    // Card pop
+    cardScale.value = withSequence(
+      withSpring(0.97, { damping: 15, stiffness: 400 }),
+      withSpring(1, { damping: 10, stiffness: 200 })
+    );
+
+    // Icon spin
+    iconRotate.value = withSequence(
+      withTiming(iconRotate.value + 360, { duration: 500, easing: Easing.out(Easing.cubic) })
+    );
+
+    // Text fade out and back in
+    textOpacity.value = withSequence(
+      withTiming(0, { duration: 120 }),
+      withTiming(1, { duration: 280 })
+    );
+
+    // Pulse ring
+    pulseScale.value = 0;
+    pulseScale.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) });
+
+    if (clockedIn) {
+      progress.value = withSpring(0, { damping: 18, stiffness: 200 });
+      setClockedIn(false);
+      setClockInTime(null);
+      setElapsed('0h 0m');
+    } else {
+      progress.value = withSpring(1, { damping: 18, stiffness: 200 });
+      setClockedIn(true);
+      setClockInTime(new Date());
+    }
+  };
+
+  const fmtClockTime = (d: Date) =>
+    d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  // Animated styles
+  const cardAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [colors.warmWhite, colors.statusConfirmedBg]
+    ),
+    borderColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [colors.border, colors.statusConfirmedText]
+    ),
+  }));
+
+  const btnAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: btnScale.value }],
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [colors.forest, colors.statusCancelledBg]
+    ),
+  }));
+
+  const btnTextAnim = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      progress.value,
+      [0, 1],
+      ['#FFFFFF', colors.statusCancelledText]
+    ),
+  }));
+
+  const iconAnim = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${iconRotate.value}deg` }],
+  }));
+
+  const textAnim = useAnimatedStyle(() => ({
+    opacity: textOpacity.value,
+  }));
+
+  const pulseAnim = useAnimatedStyle(() => ({
+    position: 'absolute' as const,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [colors.forest, colors.statusConfirmedText]
+    ),
+    opacity: 1 - pulseScale.value,
+    transform: [{ scale: 1 + pulseScale.value * 0.8 }],
+  }));
+
+  return (
+    <Animated.View style={[styles.clockCard, cardAnim]}>
+      <View style={styles.clockInfo}>
+        <View style={styles.clockIconWrap}>
+          <Animated.View style={iconAnim}>
+            <Feather
+              name={clockedIn ? 'log-out' : 'log-in'}
+              size={20}
+              color={clockedIn ? colors.statusConfirmedText : colors.charcoal}
+            />
+          </Animated.View>
+          <Animated.View style={pulseAnim} />
+        </View>
+        <Animated.View style={[{ flex: 1 }, textAnim]}>
+          <Text style={[styles.clockStatus, { color: colors.obsidian }]}>
+            {clockedIn ? 'Clocked In' : 'Not Clocked In'}
+          </Text>
+          {clockedIn && clockInTime ? (
+            <Text style={[styles.clockDetail, { color: colors.textMuted }]}>
+              Since {fmtClockTime(clockInTime)} · {elapsed}
+            </Text>
+          ) : (
+            <Text style={[styles.clockDetail, { color: colors.textMuted }]}>
+              Tap to start your shift
+            </Text>
+          )}
+        </Animated.View>
+      </View>
+      <AnimatedPressable
+        style={[styles.clockBtn, btnAnim]}
+        onPress={handlePress}
+      >
+        <Animated.Text style={[styles.clockBtnText, btnTextAnim]}>
+          {clockedIn ? 'Clock Out' : 'Clock In'}
+        </Animated.Text>
+      </AnimatedPressable>
+    </Animated.View>
+  );
+}
+
 // ─── Staff Home ─────────────────────────────────────────
 
 function StaffHome() {
@@ -400,14 +697,15 @@ function StaffHome() {
 
   const todayKey = fmtKey(new Date());
 
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   const myAppts = useMemo(
     () =>
       user
-        ? getStaffAppointments(todayKey, user.id).sort(
-            (a, b) => a.startMin - b.startMin
-          )
+        ? getStaffAppointments(todayKey, user.id)
+            .filter((a) => a.endMin >= nowMin)
+            .sort((a, b) => a.startMin - b.startMin)
         : [],
-    [todayKey, user]
+    [todayKey, user, nowMin]
   );
 
   const turnState = useMemo(() => generateTurnQueueState(), []);
@@ -418,10 +716,9 @@ function StaffHome() {
         .findIndex((ts) => ts.techId === user?.id) + 1
     : null;
 
-  const totalEarnings = STAFF_EARNINGS.totalEarnings;
+  const allMyAppts = user ? getStaffAppointments(todayKey, user.id) : [];
+  const totalEarnings = allMyAppts.reduce((sum, a) => sum + (a.price ?? 0), 0);
   const apptCount = myAppts.length;
-
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }} edges={['top']}>
@@ -450,6 +747,11 @@ function StaffHome() {
               size="profile"
             />
           </View>
+        </View>
+
+        {/* Clock In / Out */}
+        <View style={{ paddingHorizontal: spacing.base, marginBottom: spacing.lg }}>
+          <ClockCard />
         </View>
 
         {/* Today's stats — 3 cards */}
@@ -485,95 +787,10 @@ function StaffHome() {
           </Card>
         </View>
 
-        {/* My Schedule */}
+        {/* My Schedule — Today */}
         <View style={styles.section}>
-          <SectionHeader title={t('dashMySchedule')} showFilament />
-          {myAppts.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Feather name="sun" size={28} color={colors.textFaint} />
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                No appointments today
-              </Text>
-            </Card>
-          ) : (
-            <View style={styles.timeline}>
-              {myAppts.map((appt, i) => {
-                const isPast = appt.endMin < nowMin;
-                const isCurrent =
-                  appt.startMin <= nowMin && appt.endMin > nowMin;
-
-                return (
-                  <View key={appt.id} style={styles.timelineRow}>
-                    {/* Time rail */}
-                    <View style={styles.timelineRail}>
-                      <View
-                        style={[
-                          styles.timelineDot,
-                          {
-                            backgroundColor: isCurrent
-                              ? colors.gold
-                              : isPast
-                              ? colors.textFaint
-                              : colors.charcoal,
-                          },
-                        ]}
-                      />
-                      {i < myAppts.length - 1 && (
-                        <View
-                          style={[
-                            styles.timelineLine,
-                            { backgroundColor: colors.border },
-                          ]}
-                        />
-                      )}
-                    </View>
-
-                    {/* Card */}
-                    <Card
-                      style={[
-                        styles.scheduleCard,
-                        isCurrent ? {
-                          borderLeftWidth: 3,
-                          borderLeftColor: colors.gold,
-                        } : undefined,
-                        isPast ? { opacity: 0.55 } : undefined,
-                      ] as any}
-                    >
-                      <View style={styles.scheduleCardHeader}>
-                        <Text
-                          style={[
-                            styles.scheduleTime,
-                            { color: isCurrent ? colors.goldDeep : colors.textMuted },
-                          ]}
-                        >
-                          {fmtTime(appt.startMin)} - {fmtTime(appt.endMin)}
-                        </Text>
-                        <StatusBadge status={appt.status} />
-                      </View>
-                      <Text
-                        style={[
-                          styles.scheduleClient,
-                          { color: colors.obsidian },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {appt.client}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.scheduleService,
-                          { color: colors.textMuted },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {appt.service}
-                      </Text>
-                    </Card>
-                  </View>
-                );
-              })}
-            </View>
-          )}
+          <SectionHeader title={`${t('dashMySchedule')} · ${t('today')}`} showFilament />
+          <ScheduleList appointments={myAppts} t={t} />
         </View>
 
         {/* Book Appointment */}
@@ -751,44 +968,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
 
-  // ── Appointment cards ───────
-  apptCard: {
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.sm,
-  },
-  apptCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  apptTimeCol: {
-    width: 64,
-  },
-  apptTime: {
-    fontSize: 14,
-    fontFamily: 'Jost_600SemiBold',
-  },
-  apptDuration: {
-    fontSize: 11,
-    fontFamily: 'Jost_400Regular',
-  },
-  apptInfoCol: {
-    flex: 1,
-  },
-  apptClient: {
-    fontSize: 14,
-    fontFamily: 'Jost_500Medium',
-  },
-  apptService: {
-    fontSize: 12,
-    fontFamily: 'Jost_400Regular',
-    marginTop: 1,
-  },
-  apptVip: {
-    marginTop: spacing.xs,
-    flexDirection: 'row',
-  },
-
   // ── Waiting ─────────────────
   waitingCard: {
     marginHorizontal: spacing.base,
@@ -810,9 +989,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xl,
   },
+  emptyList: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
   emptyText: {
     fontSize: 14,
     fontFamily: 'Jost_400Regular',
+  },
+
+  // ── List fade gradient ─────
+  listFade: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: FADE_HEIGHT,
   },
 
   // ── Performers ──────────────
@@ -915,6 +1109,59 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Jost_400Regular',
     marginTop: 2,
+  },
+  scheduleTechRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  scheduleTechName: {
+    fontSize: 11,
+    fontFamily: 'Jost_400Regular',
+  },
+
+  // ── Clock Card ──────────────
+  clockCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    padding: spacing.base,
+    gap: spacing.md,
+  },
+  clockInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  clockIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
+  clockStatus: {
+    fontSize: 15,
+    fontFamily: 'Jost_600SemiBold',
+  },
+  clockDetail: {
+    fontSize: 12,
+    fontFamily: 'Jost_400Regular',
+    marginTop: 2,
+  },
+  clockBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: radii.pill,
+  },
+  clockBtnText: {
+    fontSize: 13,
+    fontFamily: 'Jost_600SemiBold',
   },
 
   // ── FAB ─────────────────────

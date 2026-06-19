@@ -9,4 +9,4 @@ export const canBookForOthers = (role: RoleId) => isOwner(role) || isReceptionis
 export const canManageRoles = (role: RoleId) => isOwner(role);
 export const canEditBusiness = (role: RoleId) => isOwner(role);
 export const canViewBusiness = (role: RoleId) => isOwner(role) || isReceptionist(role);
-export const canManageStaff = (role: RoleId) => isOwner(role) || isStaff(role);
+export const canManageStaff = (role: RoleId) => isOwner(role);

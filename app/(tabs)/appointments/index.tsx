@@ -335,6 +335,8 @@ export default function AppointmentsScreen() {
   // Upcoming appointments
   const upcomingAppts = useMemo(() => {
     const dateKey = fmtKey(selectedDate);
+    const todayKey = fmtKey(new Date());
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
     let appts: Appointment[];
     if (isStaffUser && user) {
       appts = getStaffAppointments(dateKey, user.id);
@@ -342,6 +344,11 @@ export default function AppointmentsScreen() {
       appts = getStaffAppointments(dateKey, techFilter);
     } else {
       appts = getAppointments(dateKey);
+    }
+
+    // For today, only show appointments that haven't ended yet
+    if (dateKey === todayKey) {
+      appts = appts.filter((a) => a.status !== 'finished' && a.endMin >= nowMin);
     }
 
     if (search) {
@@ -389,7 +396,7 @@ export default function AppointmentsScreen() {
 
   const navigateToDetail = useCallback(
     (apptId: string) => {
-      router.push(`./appointments/${apptId}` as any);
+      router.push(`/(tabs)/appointments/${apptId}`);
     },
     [router]
   );
@@ -498,7 +505,7 @@ export default function AppointmentsScreen() {
         <View style={s.headerActions}>
           <StorePicker />
           <Pressable
-            onPress={() => router.push('./appointments/block-time' as any)}
+            onPress={() => router.push('/(tabs)/appointments/block-time')}
             style={[s.headerBtn, { backgroundColor: colors.creamDark }]}
           >
             <Feather name="clock" size={18} color={colors.charcoal} />
@@ -606,7 +613,7 @@ export default function AppointmentsScreen() {
 
       {/* FAB */}
       <Pressable
-        onPress={() => router.push('./appointments/book' as any)}
+        onPress={() => router.push('/(tabs)/appointments/book')}
         style={[s.fab, { backgroundColor: colors.gold }, shadows.elevated]}
       >
         <Feather name="plus" size={24} color={colors.goldButtonText} />

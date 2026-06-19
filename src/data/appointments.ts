@@ -38,6 +38,24 @@ const PRICES: Record<string, number> = {
 
 const APPT_TYPE_KEYS = ['chosen-tech', 'any-tech', 'new-customer', 'online'] as const;
 
+// ─── Mutable appointment store ─────────────────────────
+// Manually added appointments (from booking flow) keyed by dateKey
+const addedAppointments: Map<string, Appointment[]> = new Map();
+let nextAddedId = 9000;
+
+export function addAppointment(appt: Omit<Appointment, 'id' | 'apptNum'>): Appointment {
+  const id = nextAddedId++;
+  const full: Appointment = {
+    ...appt,
+    id: `apt_${appt.date}_${id}`,
+    apptNum: String(id),
+  };
+  const list = addedAppointments.get(appt.date) ?? [];
+  list.push(full);
+  addedAppointments.set(appt.date, list);
+  return full;
+}
+
 export function getAppointments(dateKey: string): Appointment[] {
   const date = new Date(dateKey + 'T00:00:00');
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -86,6 +104,10 @@ export function getAppointments(dateKey: string): Appointment[] {
     }
   });
 
+  // Merge in manually added appointments
+  const added = addedAppointments.get(dateKey);
+  if (added) appts.push(...added);
+
   return appts;
 }
 
@@ -102,5 +124,7 @@ export function getTodayAppointments(): Appointment[] {
 }
 
 export function getStaffAppointments(dateKey: string, staffId: string): Appointment[] {
-  return getAppointments(dateKey).filter((a) => a.staffId === staffId);
+  return getAppointments(dateKey).filter(
+    (a) => a.staffId === staffId || a.staffIds?.includes(staffId)
+  );
 }
