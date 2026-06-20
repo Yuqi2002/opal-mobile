@@ -69,12 +69,14 @@ function ScheduleList({
   t,
   nextApptId,
   onSlideStart,
+  flexFill,
 }: {
   appointments: Appointment[];
   showTech?: boolean;
   t: (k: string) => string;
   nextApptId?: string;
   onSlideStart?: (appt: Appointment) => void;
+  flexFill?: boolean;
 }) {
   const { colors, mode } = useTheme();
   const demoNow = getDemoNow();
@@ -85,7 +87,7 @@ function ScheduleList({
   const cardGold = mode === 'dark' ? '#F5DFA0' : colors.goldDeep;
 
   return (
-    <View style={{ height: SCHEDULE_LIST_HEIGHT }}>
+    <View style={flexFill ? { flex: 1 } : { height: SCHEDULE_LIST_HEIGHT }}>
       {appointments.length === 0 ? (
         <View style={styles.emptyList}>
           <Feather name="sun" size={28} color={colors.textFaint} />
@@ -449,11 +451,7 @@ function ReceptionistHome() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }} edges={['top']}>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={{ flex: 1 }}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.greetingRow}>
@@ -471,60 +469,57 @@ function ReceptionistHome() {
 
         {/* Quick Stats */}
         <View style={styles.statsGrid}>
-        {quickStats.map((stat) => (
-          <Card key={stat.label} style={styles.statCard}>
-            <Feather name={stat.icon as any} size={18} color={stat.color} />
-            <Text style={[styles.statValue, { color: colors.obsidian }]}>
-              {stat.value}
-            </Text>
-            <Text
-              style={[styles.statLabel, { color: colors.textMuted }]}
-              numberOfLines={1}
-            >
-              {stat.label}
-            </Text>
-          </Card>
-        ))}
-      </View>
-
-      {/* Today's Appointments */}
-      <View style={styles.section}>
-        <SectionHeader title={`${t('dashUpNext')} · ${t('today')}`} showFilament />
-        <ScheduleList appointments={upcoming} showTech t={t} />
-      </View>
-
-      {/* Waiting Queue */}
-      {ops.waiting > 0 && (
-        <View style={styles.section}>
-          <SectionHeader title={t('dashWaitingQueue')} showFilament />
-          <Card style={styles.waitingCard}>
-            <View style={styles.waitingRow}>
-              <Feather name="clock" size={20} color={colors.statusPendingText} />
-              <Text style={[styles.waitingText, { color: colors.obsidian }]}>
-                {ops.waiting} {ops.waiting === 1 ? 'client' : 'clients'} waiting
+          {quickStats.map((stat) => (
+            <Card key={stat.label} style={styles.statCard}>
+              <Feather name={stat.icon as any} size={18} color={stat.color} />
+              <Text style={[styles.statValue, { color: colors.obsidian }]}>
+                {stat.value}
               </Text>
-            </View>
-          </Card>
+              <Text
+                style={[styles.statLabel, { color: colors.textMuted }]}
+                numberOfLines={1}
+              >
+                {stat.label}
+              </Text>
+            </Card>
+          ))}
         </View>
-      )}
 
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <View style={styles.actionsRow}>
-          <Pressable
-            style={[styles.actionPill, { backgroundColor: colors.gold }]}
-            onPress={() => router.push('/(tabs)/appointments/book')}
-          >
-            <Feather name="plus" size={16} color={colors.goldButtonText} />
-            <Text style={[styles.actionText, { color: colors.goldButtonText }]}>
-              {t('dashBookAppt')}
-            </Text>
-          </Pressable>
+        {/* Today's Appointments — flexes to fill remaining space */}
+        <View style={[styles.section, { flex: 1, marginBottom: 0 }]}>
+          <SectionHeader title={`${t('dashUpNext')} · ${t('today')}`} showFilament />
+          <ScheduleList appointments={upcoming} showTech t={t} flexFill />
+        </View>
+
+        {/* Waiting Queue */}
+        {ops.waiting > 0 && (
+          <View style={{ paddingTop: spacing.md }}>
+            <Card style={styles.waitingCard}>
+              <View style={styles.waitingRow}>
+                <Feather name="clock" size={20} color={colors.statusPendingText} />
+                <Text style={[styles.waitingText, { color: colors.obsidian }]}>
+                  {ops.waiting} {ops.waiting === 1 ? 'client' : 'clients'} waiting
+                </Text>
+              </View>
+            </Card>
+          </View>
+        )}
+
+        {/* Quick Actions — always visible at bottom */}
+        <View style={{ paddingVertical: spacing.base }}>
+          <View style={styles.actionsRow}>
+            <Pressable
+              style={[styles.actionPill, { backgroundColor: colors.gold }]}
+              onPress={() => router.push('/(tabs)/appointments/book')}
+            >
+              <Feather name="plus" size={16} color={colors.goldButtonText} />
+              <Text style={[styles.actionText, { color: colors.goldButtonText }]}>
+                {t('dashBookAppt')}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
-
-        <View style={{ height: spacing.xl }} />
-      </ScrollView>
     </SafeAreaView>
   );
 }

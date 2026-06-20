@@ -12,8 +12,9 @@ import { StoreGate } from '../src/components/StorePicker';
 import { ActiveServiceProvider } from '../src/contexts/ActiveServiceContext';
 
 export default function RootLayout() {
-  // Fix iOS Safari: set viewport-fit=cover so safe area insets work,
-  // prevent auto-zoom on input focus, and add bottom padding for home indicator
+  // Fix iOS Safari / PWA: set viewport-fit=cover so safe area insets work,
+  // prevent auto-zoom on input focus, and ensure the app fills the full viewport
+  // without a white bar below the tab bar.
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const meta = document.querySelector('meta[name="viewport"]');
@@ -23,8 +24,34 @@ export default function RootLayout() {
         'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
       );
     }
-    // Removed: padding-bottom on <html> doesn't affect RN Web's absolute layout.
-    // Safe area is handled per-component (e.g. tab bar bottom inset).
+    // Inject styles to fix the white-bar-below-tabs issue on iOS PWA.
+    // The default Expo template uses `height: 100%` on html/body/#root which
+    // doesn't account for the dynamic viewport on mobile Safari (address bar
+    // show/hide, home indicator area). Using position:fixed + inset:0 on #root
+    // ensures the app always fills the exact visible viewport. We also set
+    // html/body background to match the app so any sub-pixel gap is invisible.
+    const style = document.createElement('style');
+    style.textContent = `
+      html, body {
+        height: 100% !important;
+        min-height: 100dvh;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #F5F0E8;
+      }
+      #root {
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 100% !important;
+        min-height: -webkit-fill-available;
+        overflow: hidden;
+      }
+    `;
+    document.head.appendChild(style);
   }, []);
   const [fontsLoaded] = useFonts({
     Jost_300Light,
