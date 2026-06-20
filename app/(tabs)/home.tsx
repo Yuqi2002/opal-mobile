@@ -120,7 +120,7 @@ function ScheduleList({
                           styles.timelineDot,
                           {
                             backgroundColor: isCurrent
-                              ? colors.gold
+                              ? colors.sage
                               : colors.charcoal,
                           },
                         ]}
@@ -142,7 +142,7 @@ function ScheduleList({
                         isCurrent
                           ? {
                               borderLeftWidth: 3,
-                              borderLeftColor: colors.gold,
+                              borderLeftColor: colors.sage,
                             }
                           : undefined,
                       ] as any}
@@ -620,12 +620,12 @@ function ClockCard() {
     backgroundColor: interpolateColor(
       progress.value,
       [0, 1],
-      [colors.warmWhite, colors.goldPale]
+      [colors.warmWhite, colors.sagePale]
     ),
     borderColor: interpolateColor(
       progress.value,
       [0, 1],
-      [colors.border, colors.gold]
+      [colors.border, colors.sage]
     ),
   }));
 
@@ -663,7 +663,7 @@ function ClockCard() {
     borderColor: interpolateColor(
       progress.value,
       [0, 1],
-      [colors.gold, colors.goldDeep]
+      [colors.gold, colors.sage]
     ),
     opacity: 1 - pulseScale.value,
     transform: [{ scale: 1 + pulseScale.value * 0.8 }],
@@ -677,7 +677,7 @@ function ClockCard() {
             <Feather
               name={clockedIn ? 'log-out' : 'log-in'}
               size={20}
-              color={clockedIn ? colors.goldDeep : colors.charcoal}
+              color={clockedIn ? colors.sageDeep : colors.charcoal}
             />
           </Animated.View>
           <Animated.View style={pulseAnim} />
@@ -755,7 +755,7 @@ function OngoingCard({
   }));
 
   const borderGlow = useAnimatedStyle(() => ({
-    borderColor: `rgba(214, 188, 138, ${0.3 + glowOpacity.value * 0.7})`,
+    borderColor: `rgba(107, 128, 104, ${0.3 + glowOpacity.value * 0.7})`,
   }));
 
   const cardText = mode === 'dark' ? '#FFFFFF' : colors.obsidian;
@@ -766,8 +766,8 @@ function OngoingCard({
       style={[
         ongoingStyles.card,
         {
-          backgroundColor: mode === 'dark' ? '#2A2518' : '#FDF8EE',
-          shadowColor: colors.gold,
+          backgroundColor: mode === 'dark' ? '#252E24' : '#F4F7F3',
+          shadowColor: colors.sage,
           shadowOffset: { width: 0, height: 0 },
           shadowRadius: 16,
           elevation: 8,
@@ -780,8 +780,8 @@ function OngoingCard({
       {/* Header row */}
       <View style={ongoingStyles.headerRow}>
         <View style={ongoingStyles.liveIndicator}>
-          <View style={[ongoingStyles.liveDot, { backgroundColor: colors.mauve }]} />
-          <Text style={[ongoingStyles.liveText, { color: colors.mauve }]}>
+          <View style={[ongoingStyles.liveDot, { backgroundColor: colors.sage }]} />
+          <Text style={[ongoingStyles.liveText, { color: colors.sage }]}>
             {t('statusInProgress')}
           </Text>
         </View>
@@ -1024,7 +1024,7 @@ function StaffHome() {
         {/* Today's stats — 3 cards */}
         <View style={styles.staffStatsRow}>
           <Card style={styles.staffStatCard}>
-            <Feather name="calendar" size={18} color={colors.charcoal} />
+            <Feather name="calendar" size={18} color={colors.sage} />
             <Text style={[styles.statValue, { color: colors.obsidian }]}>
               {apptCount}
             </Text>
@@ -1042,7 +1042,7 @@ function StaffHome() {
             </Text>
           </Card>
           <Card style={styles.staffStatCard}>
-            <Feather name="layers" size={18} color={colors.goldDeep} />
+            <Feather name="layers" size={18} color={colors.charcoal} />
             <Text style={[styles.statValue, { color: colors.obsidian }]}>
               {turnPosition != null && turnPosition > 0
                 ? `#${turnPosition}`
@@ -1110,7 +1110,7 @@ function StaffHome() {
               position: 'absolute',
               top: '45%',
               alignSelf: 'center',
-              backgroundColor: colors.gold,
+              backgroundColor: colors.sage,
               paddingHorizontal: 24,
               paddingVertical: 14,
               borderRadius: radii.pill,
@@ -1123,8 +1123,8 @@ function StaffHome() {
           ]}
           pointerEvents="none"
         >
-          <Feather name="check-circle" size={18} color={colors.goldButtonText} />
-          <Text style={{ color: colors.goldButtonText, fontSize: 15, fontFamily: 'Jost_600SemiBold' }}>
+          <Feather name="check-circle" size={18} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', fontSize: 15, fontFamily: 'Jost_600SemiBold' }}>
             {t('asServiceStarted')}
           </Text>
         </Animated.View>

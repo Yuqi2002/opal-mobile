@@ -75,21 +75,21 @@ export function SlideToStart({ onStart, label = 'Slide to start' }: SlideToStart
 
   return (
     <View
-      style={[styles.track, { backgroundColor: colors.gold + '18' }]}
+      style={[styles.track, { backgroundColor: colors.sage + '18' }]}
       onLayout={(e) => {
         trackWidth.value = e.nativeEvent.layout.width;
       }}
     >
       <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.thumb, { backgroundColor: colors.gold }, thumbStyle]}>
-          <Feather name="play" size={18} color={colors.goldButtonText} />
+        <Animated.View style={[styles.thumb, { backgroundColor: colors.sage }, thumbStyle]}>
+          <Feather name="play" size={18} color="#FFFFFF" />
         </Animated.View>
       </GestureDetector>
 
       <Animated.View style={[styles.labelWrap, labelStyle]} pointerEvents="none">
-        <Text style={[styles.label, { color: colors.gold }]}>{label}</Text>
+        <Text style={[styles.label, { color: colors.sage }]}>{label}</Text>
         <Animated.View style={arrowStyle}>
-          <Feather name="chevrons-right" size={16} color={colors.gold} />
+          <Feather name="chevrons-right" size={16} color={colors.sage} />
         </Animated.View>
       </Animated.View>
     </View>
