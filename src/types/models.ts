@@ -40,6 +40,7 @@ export interface Staff {
   compensationType: CompensationType;
   commissionRate: number | null;
   hourlyRate: number | null;
+  storeId: string;
 }
 
 export interface CalendarStaff {
@@ -50,6 +51,7 @@ export interface CalendarStaff {
   role: string;
   shift: [number, number];
   gold: boolean;
+  storeId: string;
 }
 
 export type ClientStatus = 'vip' | 'regular' | 'new';

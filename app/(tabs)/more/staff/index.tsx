@@ -18,7 +18,8 @@ import { SearchBar } from '../../../../src/components/SearchBar';
 import { FilterChips } from '../../../../src/components/FilterChips';
 import { Avatar } from '../../../../src/components/Avatar';
 import { StatusBadge } from '../../../../src/components/StatusBadge';
-import { STAFF } from '../../../../src/data/staff';
+import { getStaffForStore } from '../../../../src/data/staff';
+import { useStore } from '../../../../src/contexts/StoreContext';
 
 const ROLE_FILTERS = ['All', 'Staff', 'Receptionist', 'Owner'];
 
@@ -28,13 +29,14 @@ export default function StaffListScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
+  const { selectedStoreId } = useStore();
   const showAdd = user ? canManageStaff(user.role) : false;
 
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
 
   const filtered = useMemo(() => {
-    let list = STAFF;
+    let list = getStaffForStore(selectedStoreId);
     if (roleFilter !== 'All') {
       list = list.filter((s) => s.role.toLowerCase().includes(roleFilter.toLowerCase()));
     }

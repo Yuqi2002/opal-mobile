@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,20 +11,56 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../src/contexts/ThemeContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
+import { useAuth } from '../../../src/contexts/AuthContext';
 import { Card } from '../../../src/components/Card';
 import { FilterChips } from '../../../src/components/FilterChips';
-import { STAFF_EARNINGS } from '../../../src/data/reports';
+import { getStaffEarnings } from '../../../src/data/reports';
 import { fmt$ } from '../../../src/utils/currency';
 
 const PERIOD_OPTIONS = ['This week', 'Last week', 'This month', 'Last month'];
+
+function getPeriodDates(period: string): { start: Date; end: Date } {
+  const today = new Date();
+  const start = new Date(today);
+  const end = new Date(today);
+  switch (period) {
+    case 'Last week': {
+      const dayOfWeek = today.getDay();
+      start.setDate(today.getDate() - ((dayOfWeek + 6) % 7) - 7);
+      end.setDate(start.getDate() + 6);
+      break;
+    }
+    case 'This month':
+      start.setDate(1);
+      break;
+    case 'Last month':
+      start.setMonth(today.getMonth() - 1, 1);
+      end.setDate(0); // last day of prev month
+      break;
+    default: // This week
+      start.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+      break;
+  }
+  return { start, end };
+}
 
 export default function EarningsScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
+  const { user } = useAuth();
   const [period, setPeriod] = useState(PERIOD_OPTIONS[0]);
 
-  const { totalEarnings, breakdown, hoursWorked, apptsCompleted, avgTicket, dailyBreakdown } = STAFF_EARNINGS;
+  const { start, end } = useMemo(() => getPeriodDates(period), [period]);
+  const staffId = user?.id ?? 'sofia';
+  const storeId = user?.primaryStore ?? 'store_wv';
+
+  const earnings = useMemo(
+    () => getStaffEarnings(staffId, start, end, storeId),
+    [staffId, start, end, storeId]
+  );
+
+  const { totalEarnings, breakdown, hoursWorked, apptsCompleted, avgTicket, dailyBreakdown } = earnings;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>

@@ -15,14 +15,14 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { useTranslation } from '../../src/contexts/I18nContext';
 import { useStore } from '../../src/contexts/StoreContext';
 import { isOwner, isReceptionist, isStaff } from '../../src/utils/permissions';
-import { getGreeting, formatDate, fmtTime, fmtKey } from '../../src/utils/time';
+import { getGreeting, formatDate, fmtTime, fmtKey, getDemoNow } from '../../src/utils/time';
 import { fmt$ } from '../../src/utils/currency';
 import {
-  KPI_DATA,
-  WEEKLY_REVENUE,
-  MONTHLY_REVENUE,
-  TOP_PERFORMERS,
-  OPS_DATA,
+  getKpiData,
+  getWeeklyRevenue,
+  getMonthlyRevenue,
+  getTopPerformers,
+  getOpsData,
 } from '../../src/data/reports';
 import { getTodayAppointments, getStaffAppointments } from '../../src/data/appointments';
 import { STAFF_MAP } from '../../src/data/staff';
@@ -35,12 +35,14 @@ import { StatusBadge } from '../../src/components/StatusBadge';
 import { KPICard } from '../../src/components/KPICard';
 import { BarChart, LineChart } from '../../src/components/BarChart';
 import { shadows, radii, spacing } from '../../src/theme/tokens';
+import { SlideToStart } from '../../src/components/SlideToStart';
+import { useActiveService } from '../../src/contexts/ActiveServiceContext';
 import type { RoleId } from '../../src/types/models';
 
 // ─── Helpers ────────────────────────────────────────────
 
 function greetingKey(t: (k: string) => string): string {
-  const h = new Date().getHours();
+  const h = getDemoNow().getHours();
   if (h >= 5 && h < 12) return t('greetMorning');
   if (h >= 12 && h < 17) return t('greetAfternoon');
   return t('greetEvening');
@@ -65,13 +67,18 @@ function ScheduleList({
   appointments,
   showTech,
   t,
+  nextApptId,
+  onSlideStart,
 }: {
   appointments: Appointment[];
   showTech?: boolean;
   t: (k: string) => string;
+  nextApptId?: string;
+  onSlideStart?: (appt: Appointment) => void;
 }) {
   const { colors, mode } = useTheme();
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const demoNow = getDemoNow();
+  const nowMin = demoNow.getHours() * 60 + demoNow.getMinutes();
 
   // High-contrast card text — theme tokens are too muted in dark mode
   const cardText = mode === 'dark' ? '#FFFFFF' : colors.obsidian;
@@ -189,6 +196,12 @@ function ScheduleList({
                           </Text>
                         </View>
                       )}
+                      {nextApptId && appt.id === nextApptId && onSlideStart && (
+                        <SlideToStart
+                          label={t('asSlideToStart')}
+                          onStart={() => onSlideStart(appt)}
+                        />
+                      )}
                     </Card>
                   </View>
                 );
@@ -213,10 +226,16 @@ function OwnerHome() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
+  const { selectedStoreId } = useStore();
 
   const [revenueRange, setRevenueRange] = useState<'week' | 'month'>('week');
 
-  const barData = (revenueRange === 'week' ? WEEKLY_REVENUE : MONTHLY_REVENUE).map((d) => ({
+  const KPI_DATA = useMemo(() => getKpiData(selectedStoreId), [selectedStoreId]);
+  const weeklyRevenue = useMemo(() => getWeeklyRevenue(selectedStoreId), [selectedStoreId]);
+  const monthlyRevenue = useMemo(() => getMonthlyRevenue(selectedStoreId), [selectedStoreId]);
+  const topPerformers = useMemo(() => getTopPerformers(selectedStoreId), [selectedStoreId]);
+
+  const barData = (revenueRange === 'week' ? weeklyRevenue : monthlyRevenue).map((d) => ({
     label: d.day,
     value: d.amount,
   }));
@@ -332,7 +351,7 @@ function OwnerHome() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.performersScroll}
           >
-            {TOP_PERFORMERS.map((perf, i) => (
+            {topPerformers.map((perf, i) => (
               <Card key={perf.id} style={styles.performerCard}>
                 <View style={styles.performerTop}>
                   <Avatar initials={perf.initials} gold={perf.gold} size="card" />
@@ -382,11 +401,11 @@ function OwnerHome() {
                   borderColor: colors.borderStrong,
                 },
               ]}
-              onPress={() => router.push('/(tabs)/more/reports')}
+              onPress={() => router.push('/(tabs)/more/payroll')}
             >
-              <Feather name="bar-chart-2" size={16} color={colors.charcoal} />
+              <Feather name="dollar-sign" size={16} color={colors.charcoal} />
               <Text style={[styles.actionText, { color: colors.charcoal }]}>
-                {t('dashViewReports')}
+                {t('morePayroll')}
               </Text>
             </Pressable>
           </View>
@@ -405,10 +424,12 @@ function ReceptionistHome() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
+  const { selectedStoreId } = useStore();
 
-  const todayAppts = getTodayAppointments();
+  const todayAppts = useMemo(() => getTodayAppointments(selectedStoreId), [selectedStoreId]);
 
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const demoNow = getDemoNow();
+  const nowMin = demoNow.getHours() * 60 + demoNow.getMinutes();
   const upcoming = useMemo(
     () =>
       todayAppts
@@ -417,7 +438,7 @@ function ReceptionistHome() {
     [todayAppts, nowMin]
   );
 
-  const ops = OPS_DATA;
+  const ops = useMemo(() => getOpsData(selectedStoreId), [selectedStoreId]);
 
   const quickStats: { label: string; value: number; icon: string; color: string }[] = [
     { label: t('dashBooked'), value: ops.bookedToday, icon: 'calendar', color: colors.charcoal },
@@ -516,6 +537,7 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
+  withRepeat,
   interpolateColor,
   Easing,
 } from 'react-native-reanimated';
@@ -598,12 +620,12 @@ function ClockCard() {
     backgroundColor: interpolateColor(
       progress.value,
       [0, 1],
-      [colors.warmWhite, colors.statusConfirmedBg]
+      [colors.warmWhite, colors.goldPale]
     ),
     borderColor: interpolateColor(
       progress.value,
       [0, 1],
-      [colors.border, colors.statusConfirmedText]
+      [colors.border, colors.gold]
     ),
   }));
 
@@ -612,7 +634,7 @@ function ClockCard() {
     backgroundColor: interpolateColor(
       progress.value,
       [0, 1],
-      [colors.forest, colors.statusCancelledBg]
+      [colors.gold, colors.statusCancelledBg]
     ),
   }));
 
@@ -620,7 +642,7 @@ function ClockCard() {
     color: interpolateColor(
       progress.value,
       [0, 1],
-      ['#FFFFFF', colors.statusCancelledText]
+      [colors.goldButtonText, colors.statusCancelledText]
     ),
   }));
 
@@ -641,7 +663,7 @@ function ClockCard() {
     borderColor: interpolateColor(
       progress.value,
       [0, 1],
-      [colors.forest, colors.statusConfirmedText]
+      [colors.gold, colors.goldDeep]
     ),
     opacity: 1 - pulseScale.value,
     transform: [{ scale: 1 + pulseScale.value * 0.8 }],
@@ -655,7 +677,7 @@ function ClockCard() {
             <Feather
               name={clockedIn ? 'log-out' : 'log-in'}
               size={20}
-              color={clockedIn ? colors.statusConfirmedText : colors.charcoal}
+              color={clockedIn ? colors.goldDeep : colors.charcoal}
             />
           </Animated.View>
           <Animated.View style={pulseAnim} />
@@ -687,6 +709,211 @@ function ClockCard() {
   );
 }
 
+// ─── Ongoing Service Card ──────────────────────────────
+
+function OngoingCard({
+  appt,
+  startedAt,
+  onEdit,
+  onComplete,
+  t,
+}: {
+  appt: Appointment;
+  startedAt: number;
+  onEdit: () => void;
+  onComplete: () => void;
+  t: (k: string) => string;
+}) {
+  const { colors, mode } = useTheme();
+  const [elapsed, setElapsed] = useState('0:00');
+  const glowOpacity = useSharedValue(0.35);
+
+  // Pulsing gold glow
+  useEffect(() => {
+    glowOpacity.value = withRepeat(
+      withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  // Elapsed timer
+  useEffect(() => {
+    const tick = () => {
+      const diff = Date.now() - startedAt;
+      const m = Math.floor(diff / 60_000);
+      const s = Math.floor((diff % 60_000) / 1000);
+      setElapsed(`${m}:${s.toString().padStart(2, '0')}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: glowOpacity.value * 0.6,
+  }));
+
+  const borderGlow = useAnimatedStyle(() => ({
+    borderColor: `rgba(214, 188, 138, ${0.3 + glowOpacity.value * 0.7})`,
+  }));
+
+  const cardText = mode === 'dark' ? '#FFFFFF' : colors.obsidian;
+  const cardGold = mode === 'dark' ? '#F5DFA0' : colors.goldDeep;
+
+  return (
+    <Animated.View
+      style={[
+        ongoingStyles.card,
+        {
+          backgroundColor: mode === 'dark' ? '#2A2518' : '#FDF8EE',
+          shadowColor: colors.gold,
+          shadowOffset: { width: 0, height: 0 },
+          shadowRadius: 16,
+          elevation: 8,
+          borderWidth: 2,
+        },
+        glowStyle,
+        borderGlow,
+      ]}
+    >
+      {/* Header row */}
+      <View style={ongoingStyles.headerRow}>
+        <View style={ongoingStyles.liveIndicator}>
+          <View style={[ongoingStyles.liveDot, { backgroundColor: colors.mauve }]} />
+          <Text style={[ongoingStyles.liveText, { color: colors.mauve }]}>
+            {t('statusInProgress')}
+          </Text>
+        </View>
+        <View style={ongoingStyles.elapsedBadge}>
+          <Feather name="clock" size={11} color={cardGold} />
+          <Text style={[ongoingStyles.elapsedText, { color: cardGold }]}>{elapsed}</Text>
+        </View>
+      </View>
+
+      {/* Time range */}
+      <Text style={[ongoingStyles.time, { color: cardGold }]}>
+        {fmtTime(appt.startMin)} - {fmtTime(appt.endMin)}
+      </Text>
+
+      {/* Client + service */}
+      <Text style={[ongoingStyles.client, { color: cardGold }]} numberOfLines={1}>
+        {appt.client}
+      </Text>
+      <Text style={[ongoingStyles.service, { color: cardText }]} numberOfLines={1}>
+        {appt.service}
+      </Text>
+
+      {/* Actions row */}
+      <View style={ongoingStyles.actionsRow}>
+        <Pressable
+          style={[ongoingStyles.editBtn, { backgroundColor: colors.gold }]}
+          onPress={onEdit}
+        >
+          <Feather name="edit-2" size={14} color={colors.goldButtonText} />
+          <Text style={[ongoingStyles.editBtnText, { color: colors.goldButtonText }]}>
+            {t('asEditService')}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[ongoingStyles.completeBtn, { borderColor: colors.obsidian, borderWidth: 1.5 }]}
+          onPress={onComplete}
+        >
+          <Feather name="check" size={14} color={colors.obsidian} />
+          <Text style={[ongoingStyles.completeBtnText, { color: colors.obsidian }]}>
+            {t('asCompleteService')}
+          </Text>
+        </Pressable>
+      </View>
+    </Animated.View>
+  );
+}
+
+const ongoingStyles = StyleSheet.create({
+  card: {
+    borderRadius: radii.lg,
+    padding: spacing.base,
+    marginHorizontal: spacing.base,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  liveText: {
+    fontSize: 12,
+    fontFamily: 'Jost_600SemiBold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  elapsedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  elapsedText: {
+    fontSize: 13,
+    fontFamily: 'Jost_600SemiBold',
+    fontVariant: ['tabular-nums'],
+  },
+  time: {
+    fontSize: 12,
+    fontFamily: 'Jost_500Medium',
+    marginBottom: 2,
+  },
+  client: {
+    fontSize: 16,
+    fontFamily: 'Jost_500Medium',
+  },
+  service: {
+    fontSize: 13,
+    fontFamily: 'Jost_400Regular',
+    marginTop: 2,
+    marginBottom: spacing.md,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  editBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: radii.pill,
+  },
+  editBtnText: {
+    fontSize: 13,
+    fontFamily: 'Jost_600SemiBold',
+  },
+  completeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: radii.pill,
+  },
+  completeBtnText: {
+    fontSize: 13,
+    fontFamily: 'Jost_600SemiBold',
+  },
+});
+
 // ─── Staff Home ─────────────────────────────────────────
 
 function StaffHome() {
@@ -694,21 +921,34 @@ function StaffHome() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
+  const { activeAppt, startedAt, startService, completeService, revision } = useActiveService();
 
   const todayKey = fmtKey(new Date());
 
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const demoNow = getDemoNow();
+  const nowMin = demoNow.getHours() * 60 + demoNow.getMinutes();
   const myAppts = useMemo(
     () =>
       user
         ? getStaffAppointments(todayKey, user.id)
-            .filter((a) => a.endMin >= nowMin)
+            .filter((a) => a.endMin >= nowMin && a.status !== 'started' && a.status !== 'ended')
             .sort((a, b) => a.startMin - b.startMin)
         : [],
-    [todayKey, user, nowMin]
+    [todayKey, user, nowMin, revision]
   );
 
-  const turnState = useMemo(() => generateTurnQueueState(), []);
+  // The single next upcoming appointment (first non-started, non-ended)
+  const nextAppt = myAppts.length > 0 ? myAppts[0] : null;
+
+  // Re-read the active appointment from the data layer so edits are reflected
+  const activeApptLive = useMemo(() => {
+    if (!activeAppt || !user) return null;
+    const all = getStaffAppointments(todayKey, user.id);
+    return all.find((a) => a.id === activeAppt.id) ?? activeAppt;
+  }, [activeAppt, todayKey, user, revision]);
+
+  const storeId = user?.primaryStore ?? 'store_wv';
+  const turnState = useMemo(() => generateTurnQueueState(storeId), [storeId]);
   const myTurn = turnState.find((ts) => ts.techId === user?.id);
   const turnPosition = myTurn
     ? turnState
@@ -718,7 +958,34 @@ function StaffHome() {
 
   const allMyAppts = user ? getStaffAppointments(todayKey, user.id) : [];
   const totalEarnings = allMyAppts.reduce((sum, a) => sum + (a.price ?? 0), 0);
-  const apptCount = myAppts.length;
+  const apptCount = myAppts.length + (activeApptLive ? 1 : 0);
+
+  // Start animation state
+  const [showStarted, setShowStarted] = useState(false);
+  const startedOpacity = useSharedValue(0);
+  const startedScale = useSharedValue(0.8);
+
+  const handleSlideStart = (appt: Appointment) => {
+    startService(appt);
+    // Flash "Service started!" toast
+    setShowStarted(true);
+    startedOpacity.value = withSequence(
+      withTiming(1, { duration: 200 }),
+      withTiming(1, { duration: 1200 }),
+      withTiming(0, { duration: 400 })
+    );
+    startedScale.value = withSequence(
+      withSpring(1, { damping: 12, stiffness: 200 }),
+      withTiming(1, { duration: 1200 }),
+      withTiming(0.8, { duration: 400 })
+    );
+    setTimeout(() => setShowStarted(false), 2000);
+  };
+
+  const startedToastStyle = useAnimatedStyle(() => ({
+    opacity: startedOpacity.value,
+    transform: [{ scale: startedScale.value }],
+  }));
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }} edges={['top']}>
@@ -766,7 +1033,7 @@ function StaffHome() {
             </Text>
           </Card>
           <Card style={styles.staffStatCard}>
-            <Feather name="dollar-sign" size={18} color={colors.forest} />
+            <Feather name="dollar-sign" size={18} color={colors.goldDeep} />
             <Text style={[styles.statValue, { color: colors.obsidian }]}>
               {fmt$(totalEarnings)}
             </Text>
@@ -787,10 +1054,34 @@ function StaffHome() {
           </Card>
         </View>
 
+        {/* Ongoing Service Section */}
+        {activeApptLive && startedAt && (
+          <View style={styles.section}>
+            <SectionHeader title={t('asOngoing')} showFilament />
+            <OngoingCard
+              appt={activeApptLive}
+              startedAt={startedAt}
+              onEdit={() =>
+                router.push({
+                  pathname: '/(tabs)/appointments/edit-active',
+                  params: { id: activeApptLive.id, date: activeApptLive.date },
+                })
+              }
+              onComplete={completeService}
+              t={t}
+            />
+          </View>
+        )}
+
         {/* My Schedule — Today */}
         <View style={styles.section}>
           <SectionHeader title={`${t('dashMySchedule')} · ${t('today')}`} showFilament />
-          <ScheduleList appointments={myAppts} t={t} />
+          <ScheduleList
+            appointments={myAppts}
+            t={t}
+            nextApptId={!activeAppt && nextAppt ? nextAppt.id : undefined}
+            onSlideStart={handleSlideStart}
+          />
         </View>
 
         {/* Book Appointment */}
@@ -810,6 +1101,34 @@ function StaffHome() {
 
         <View style={{ height: spacing.xl }} />
       </ScrollView>
+
+      {/* "Service started!" toast overlay */}
+      {showStarted && (
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              top: '45%',
+              alignSelf: 'center',
+              backgroundColor: colors.gold,
+              paddingHorizontal: 24,
+              paddingVertical: 14,
+              borderRadius: radii.pill,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+            },
+            shadows.elevated,
+            startedToastStyle,
+          ]}
+          pointerEvents="none"
+        >
+          <Feather name="check-circle" size={18} color={colors.goldButtonText} />
+          <Text style={{ color: colors.goldButtonText, fontSize: 15, fontFamily: 'Jost_600SemiBold' }}>
+            {t('asServiceStarted')}
+          </Text>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }

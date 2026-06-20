@@ -11,15 +11,15 @@ export const light = {
   goldDeep: '#A08454',
   goldPale: '#E8D9B8',
   goldSoft: 'rgba(184,153,104,0.12)',
-  forest: '#2D6A4F',
+  forest: '#8C5A6A',
   mauve: '#8C5A6A',
   sienna: '#8B4513',
   border: 'rgba(26,26,24,0.08)',
   borderStrong: 'rgba(26,26,24,0.14)',
 
   // Status badge colors
-  statusConfirmedBg: '#E8F5E9',
-  statusConfirmedText: '#2D6A4F',
+  statusConfirmedBg: '#F5EDD9',
+  statusConfirmedText: '#8A6830',
   statusPendingBg: '#FFF8E1',
   statusPendingText: '#8A6830',
   statusCheckedInBg: '#E3F2FD',

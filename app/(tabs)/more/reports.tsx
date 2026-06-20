@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../src/contexts/ThemeContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
+import { useStore } from '../../../src/contexts/StoreContext';
 import { StorePicker } from '../../../src/components/StorePicker';
 import { Card } from '../../../src/components/Card';
 import { Sparkline } from '../../../src/components/Sparkline';
@@ -19,23 +20,50 @@ import { ProgressRing } from '../../../src/components/ProgressRing';
 import { Avatar } from '../../../src/components/Avatar';
 import { FilterChips } from '../../../src/components/FilterChips';
 import {
-  KPI_DATA,
-  WEEKLY_REVENUE,
-  SERVICE_MIX,
-  TECH_LEADERBOARD,
-  HOURLY_BREAKDOWN,
+  getKpiData,
+  getWeeklyRevenue,
+  getServiceMix,
+  getTechLeaderboard,
+  getHourlyBreakdown,
 } from '../../../src/data/reports';
 import { fmt$ } from '../../../src/utils/currency';
 
 const RANGE_OPTIONS = ['This week', 'This month', 'This quarter', 'Custom'];
 
+function getDateRange(range: string): { start: Date; end: Date } {
+  const today = new Date();
+  const start = new Date(today);
+  switch (range) {
+    case 'This month':
+      start.setDate(1);
+      break;
+    case 'This quarter': {
+      const qMonth = Math.floor(today.getMonth() / 3) * 3;
+      start.setMonth(qMonth, 1);
+      break;
+    }
+    default: // This week
+      start.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+      break;
+  }
+  return { start, end: today };
+}
+
 export default function ReportsScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
+  const { selectedStoreId } = useStore();
   const [range, setRange] = useState('This week');
 
   const rangeLabels = [t('rpThisWeek'), t('rpThisMonth'), t('rpThisQuarter'), t('rpCustom')];
+
+  const { start: rangeStart, end: rangeEnd } = useMemo(() => getDateRange(range), [range]);
+  const KPI_DATA = useMemo(() => getKpiData(selectedStoreId), [selectedStoreId]);
+  const WEEKLY_REVENUE = useMemo(() => getWeeklyRevenue(selectedStoreId), [selectedStoreId]);
+  const SERVICE_MIX = useMemo(() => getServiceMix(rangeStart, rangeEnd, selectedStoreId), [rangeStart, rangeEnd, selectedStoreId]);
+  const TECH_LEADERBOARD = useMemo(() => getTechLeaderboard(rangeStart, rangeEnd, selectedStoreId), [rangeStart, rangeEnd, selectedStoreId]);
+  const HOURLY_BREAKDOWN = useMemo(() => getHourlyBreakdown(selectedStoreId), [selectedStoreId]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>

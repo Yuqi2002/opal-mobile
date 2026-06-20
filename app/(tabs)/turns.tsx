@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTranslation } from '../../src/contexts/I18nContext';
+import { useStore } from '../../src/contexts/StoreContext';
 import { StorePicker } from '../../src/components/StorePicker';
 import { Avatar } from '../../src/components/Avatar';
 import { EmptyState } from '../../src/components/EmptyState';
@@ -189,7 +190,8 @@ export default function TurnsScreen() {
   const { user } = useAuth();
   const { t } = useTranslation();
 
-  const turnState = useMemo(() => generateTurnQueueState(), []);
+  const { selectedStoreId } = useStore();
+  const turnState = useMemo(() => generateTurnQueueState(selectedStoreId), [selectedStoreId]);
 
   // Sort by turnsCompleted descending (leaderboard rank)
   const sortedTechs = useMemo(

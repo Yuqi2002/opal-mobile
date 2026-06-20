@@ -28,13 +28,17 @@ No linter, formatter, or unit test runner is configured.
 
 ## Login credentials (mock auth)
 
-| Email | Password | Name | Role |
-|---|---|---|---|
-| alex@opal.salon | owner123 | Alex Moreau | Main Owner (r01) |
-| naomi@opal.salon | front123 | Naomi Walsh | Receptionist (r03) |
-| sofia@opal.salon | staff123 | Sofia Reyes | Staff (r04) |
-| mia@opal.salon | staff123 | Mia Tanaka | Staff (r04) |
-| jade@opal.salon | staff123 | Jade Kim | Staff (r04) |
+| Email | Password | Name | Role | Store |
+|---|---|---|---|---|
+| alex@opal.salon | owner123 | Alex Moreau | Main Owner (r01) | All stores |
+| naomi@opal.salon | front123 | Naomi Walsh | Receptionist (r03) | West Village |
+| sofia@opal.salon | staff123 | Sofia Reyes | Staff (r04) | West Village |
+| mia@opal.salon | staff123 | Mia Tanaka | Staff (r04) | West Village |
+| jade@opal.salon | staff123 | Jade Kim | Staff (r04) | West Village |
+| elena@opal.salon | front123 | Elena Petrov | Receptionist (r03) | Upper East Side |
+| nina@opal.salon | staff123 | Nina Choi | Staff (r04) | Upper East Side |
+| keiko@opal.salon | front123 | Keiko Sato | Receptionist (r03) | Brooklyn |
+| tamara@opal.salon | staff123 | Tamara Chen | Staff (r04) | Brooklyn |
 
 ## Architecture
 
@@ -50,17 +54,18 @@ app/
     _layout.tsx        — Bottom tab bar: Home, Appts, Turns, More
     home.tsx           — Role-dispatched dashboard (OwnerHome / ReceptionistHome / StaffHome)
     turns.tsx
-    appointments/      — Stack: list, [id] detail, book, block-time
+    appointments/      — Stack: list, [id] detail, book, block-time, edit-active
     more/              — Stack: settings hub with nested CRUD views (clients, services, products, etc.)
 ```
 
 ### Context providers (src/contexts/)
 
-Four providers wrap the app in `app/_layout.tsx`, outermost to innermost:
+Five providers wrap the app in `app/_layout.tsx`, outermost to innermost:
 - **ThemeContext** — light/dark mode, exposes `useTheme()` → `{ colors, mode, setMode }`. Persisted via AsyncStorage.
 - **I18nContext** — English (`en`) / Vietnamese (`vi`), exposes `useTranslation()` → `{ t, language, setLanguage }`. All user-facing strings use `t('keyName')`. Supports interpolation via `t('key', { var: 'value' })`. Persisted via AsyncStorage key `opal-language`.
 - **AuthContext** — email/password login against hardcoded `CREDENTIALS` map, exposes `useAuth()` → `{ user, isLoading, login, logout }`. Session persisted via AsyncStorage key `opal-session`.
 - **StoreContext** — multi-store selector, exposes `useStore()` → `{ selectedStoreId, selectedStore, userStores, isAllStores, storeColor, gateStore, clearGate }`. `selectedStoreId` can be a store ID string or `'all'` (owners only). The `gateStore`/`clearGate` mechanism drives a full-screen animated transition (via `StoreGate` component in `src/components/StorePicker.tsx`) when switching stores.
+- **ActiveServiceContext** — tracks the appointment a staff member is currently servicing. Exposes `useActiveService()` → `{ activeAppt, startedAt, startService, completeService, refreshActive, revision }`. Calls `updateAppointment()` to mutate the in-memory appointment store when starting/completing.
 
 `StoreGate` is rendered as a sibling to `Stack` in the root layout, overlaying the entire app during store transitions with Reanimated animations.
 
@@ -74,10 +79,11 @@ Note: `r02` (Manager) is defined in the type system but has no active mock users
 
 All mock data — no API calls. TypeScript files exporting arrays/objects:
 - `users.ts` — user accounts with `UserAccount` type
-- `staff.ts`, `clients.ts`, `services.ts` — entity lists
-- `appointments.ts` — appointment generator using seeded PRNG (mulberry32, date-seeded for deterministic output). Helpers: `getTodayAppointments()`, `getStaffAppointments()`
-- `turns.ts` — turn queue state generator
-- `reports.ts` — KPI, revenue, performer data
+- `staff.ts` — staff arrays per store (`STAFF_WV`, `STAFF_UE`, `STAFF_BK`) plus combined `STAFF`. Each staff member has a `storeId` field. Helpers: `getStaffForStore(storeId)`, `getTechsForStore(storeId)`, `getCalendarStaffForStore(storeId)`.
+- `clients.ts`, `services.ts` — entity lists (shared across stores)
+- `appointments.ts` — appointment generator using seeded PRNG (mulberry32, date+store seeded for deterministic per-store output). All functions accept optional `storeId` param (`'all'` or specific store ID). Helpers: `getAppointments(dateKey, storeId)`, `getTodayAppointments(storeId)`, `getStaffAppointments(dateKey, staffId, storeId)`, `getAppointmentsForRange(startDate, endDate, storeId)`. Also has a **mutable in-memory store**: `addAppointment()` persists new bookings, `updateAppointment(id, partial)` applies overrides. Both are session-only (lost on reload).
+- `turns.ts` — turn queue state generator. `generateTurnQueueState(storeId)` returns turn data for store-specific technicians.
+- `reports.ts` — all report data is now generated dynamically from appointments. Key functions: `getKpiData(storeId)`, `getWeeklyRevenue(storeId)`, `getMonthlyRevenue(storeId)`, `getTopPerformers(storeId)`, `getServiceMix(startDate, endDate, storeId)`, `getTechLeaderboard(startDate, endDate, storeId)`, `getHourlyBreakdown(storeId)`, `getOpsData(storeId)`, `getPayrollData(startDate, endDate, storeId)`, `getStaffEarnings(staffId, startDate, endDate, storeId)`. Static backward-compatible exports still exist but default to `'all'`.
 - `stores.ts` — multi-store data (3 stores: West Village, Upper East Side, Brooklyn)
 - `notifications.ts` — notification feed
 
@@ -115,5 +121,6 @@ One appointment = one client, but can contain multiple services each with its ow
 
 - **Staff `gold` flag** — marks elite performers. Triggers gradient avatar rendering via `expo-linear-gradient` instead of solid background.
 - **Appointment type keys** — `'chosen-tech' | 'misc' | 'new-customer' | 'any-tech' | 'online' | 'walk-in'` drive different booking flows and UI treatments.
+- **`SlideToStart` component** — a swipe-to-confirm gesture control (`src/components/SlideToStart.tsx`) using Reanimated + GestureHandler. Used on the staff home screen to start servicing an appointment.
 - **`src/hooks/`** — exists but is currently empty; add custom hooks here.
 - **`src/utils/`** — `time.ts` (fmtTime, fmtKey, formatDate, getGreeting), `currency.ts` (fmt$), `permissions.ts` (role predicates).

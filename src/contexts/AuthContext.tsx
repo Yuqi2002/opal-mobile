@@ -19,10 +19,17 @@ const AuthContext = createContext<AuthState>({
 
 const CREDENTIALS: Record<string, { password: string; userId: string }> = {
   'alex@opal.salon': { password: 'owner123', userId: 'alex' },
+  // West Village
   'naomi@opal.salon': { password: 'front123', userId: 'naomi' },
   'sofia@opal.salon': { password: 'staff123', userId: 'sofia' },
   'mia@opal.salon': { password: 'staff123', userId: 'mia' },
   'jade@opal.salon': { password: 'staff123', userId: 'jade' },
+  // Upper East Side
+  'elena@opal.salon': { password: 'front123', userId: 'elena' },
+  'nina@opal.salon': { password: 'staff123', userId: 'nina' },
+  // Brooklyn
+  'keiko@opal.salon': { password: 'front123', userId: 'keiko' },
+  'tamara@opal.salon': { password: 'staff123', userId: 'tamara' },
 };
 
 const STORAGE_KEY = 'opal-session';

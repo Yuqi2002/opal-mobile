@@ -187,6 +187,23 @@ const en: Record<string, string> = {
   filterNew: 'New', filterActive: 'Active', filterInactive: 'Inactive',
   filterManicure: 'Manicure', filterPedicure: 'Pedicure',
   filterCombo: 'Combo', filterAddOn: 'Add-on',
+
+  // Active service
+  asSlideToStart: 'Slide to start',
+  asOngoing: 'Ongoing',
+  asElapsed: 'Elapsed',
+  asEditService: 'Edit Service',
+  asAddService: 'Add Service',
+  asRemoveService: 'Remove',
+  asAdjustTime: 'Adjust Time',
+  asCompleteService: 'Complete',
+  asTotalTime: 'Total time',
+  asCurrentServices: 'Current Services',
+  asServiceCatalog: 'Service Catalog',
+  asSearchServices: 'Search services...',
+  asNoServicesFound: 'No services found',
+  asSaveChanges: 'Save Changes',
+  asServiceStarted: 'Service started!',
 };
 
 const vi: Record<string, string> = {
@@ -244,6 +261,18 @@ const vi: Record<string, string> = {
   notifTitle: 'Thông báo', notifMarkAllRead: 'Đánh dấu đã đọc',
   appearLight: 'Sáng', appearDark: 'Tối',
   langEnglish: 'English', langVietnamese: 'Tiếng Việt',
+
+  asSlideToStart: 'Trượt để bắt đầu',
+  asOngoing: 'Đang thực hiện',
+  asEditService: 'Sửa dịch vụ',
+  asAddService: 'Thêm dịch vụ',
+  asCompleteService: 'Hoàn thành',
+  asTotalTime: 'Tổng thời gian',
+  asCurrentServices: 'Dịch vụ hiện tại',
+  asServiceCatalog: 'Danh mục dịch vụ',
+  asSearchServices: 'Tìm dịch vụ...',
+  asSaveChanges: 'Lưu thay đổi',
+  asServiceStarted: 'Dịch vụ đã bắt đầu!',
 };
 
 const translations: Record<Language, Record<string, string>> = { en, vi };

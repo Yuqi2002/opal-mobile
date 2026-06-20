@@ -18,6 +18,7 @@ export const USERS: UserAccount[] = [
     primaryStore: 'store_wv',
     biometricEnabled: false,
   },
+  // ── West Village ──
   {
     id: 'naomi',
     email: 'naomi@opal.salon',
@@ -74,9 +75,70 @@ export const USERS: UserAccount[] = [
     gold: false,
     stores: [
       { id: 'store_wv', name: 'West Village', address: '412 Bleecker St' },
-      { id: 'store_bk', name: 'Brooklyn', address: '215 Smith St' },
     ],
     primaryStore: 'store_wv',
+    biometricEnabled: false,
+  },
+  // ── Upper East Side ──
+  {
+    id: 'elena',
+    email: 'elena@opal.salon',
+    first: 'Elena',
+    last: 'Petrov',
+    initials: 'EP',
+    role: 'r03' as RoleId,
+    roleName: 'Receptionist',
+    gold: false,
+    stores: [
+      { id: 'store_ue', name: 'Upper East Side', address: '983 Madison Ave' },
+    ],
+    primaryStore: 'store_ue',
+    biometricEnabled: false,
+  },
+  {
+    id: 'nina',
+    email: 'nina@opal.salon',
+    first: 'Nina',
+    last: 'Choi',
+    initials: 'NC',
+    role: 'r04' as RoleId,
+    roleName: 'Staff',
+    gold: true,
+    stores: [
+      { id: 'store_ue', name: 'Upper East Side', address: '983 Madison Ave' },
+    ],
+    primaryStore: 'store_ue',
+    biometricEnabled: false,
+  },
+  // ── Brooklyn ──
+  {
+    id: 'keiko',
+    email: 'keiko@opal.salon',
+    first: 'Keiko',
+    last: 'Sato',
+    initials: 'KS',
+    role: 'r03' as RoleId,
+    roleName: 'Receptionist',
+    gold: false,
+    stores: [
+      { id: 'store_bk', name: 'Brooklyn', address: '215 Smith St' },
+    ],
+    primaryStore: 'store_bk',
+    biometricEnabled: false,
+  },
+  {
+    id: 'tamara',
+    email: 'tamara@opal.salon',
+    first: 'Tamara',
+    last: 'Chen',
+    initials: 'TC',
+    role: 'r04' as RoleId,
+    roleName: 'Staff',
+    gold: true,
+    stores: [
+      { id: 'store_bk', name: 'Brooklyn', address: '215 Smith St' },
+    ],
+    primaryStore: 'store_bk',
     biometricEnabled: false,
   },
 ];

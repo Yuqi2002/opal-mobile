@@ -15,9 +15,10 @@ import { useTheme } from '../../../src/contexts/ThemeContext';
 import { useAuth } from '../../../src/contexts/AuthContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
 import { getAppointments, getStaffAppointments } from '../../../src/data/appointments';
-import { CALENDAR_STAFF } from '../../../src/data/staff';
+import { getCalendarStaffForStore, CALENDAR_STAFF } from '../../../src/data/staff';
+import { useStore } from '../../../src/contexts/StoreContext';
 import { APPT_TYPES } from '../../../src/data/services';
-import { fmtKey, fmtTime, formatDate } from '../../../src/utils/time';
+import { fmtKey, fmtTime, formatDate, getDemoNow } from '../../../src/utils/time';
 import { fmtCurrency } from '../../../src/utils/currency';
 import { isOwner, isReceptionist, isStaff } from '../../../src/utils/permissions';
 import { Avatar } from '../../../src/components/Avatar';
@@ -226,8 +227,9 @@ function TechDropdown({
 }) {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const { selectedStoreId } = useStore();
   const [open, setOpen] = useState(false);
-  const techs = CALENDAR_STAFF.filter((st) => st.role === 'Staff');
+  const techs = getCalendarStaffForStore(selectedStoreId).filter((st) => st.role === 'Staff');
   const activeTech = techs.find((tc) => tc.id === selected);
 
   return (
@@ -315,6 +317,7 @@ export default function AppointmentsScreen() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
+  const { selectedStoreId } = useStore();
 
   const [tab, setTab] = useState<TabMode>('upcoming');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -336,14 +339,15 @@ export default function AppointmentsScreen() {
   const upcomingAppts = useMemo(() => {
     const dateKey = fmtKey(selectedDate);
     const todayKey = fmtKey(new Date());
-    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    const demoNow = getDemoNow();
+    const nowMin = demoNow.getHours() * 60 + demoNow.getMinutes();
     let appts: Appointment[];
     if (isStaffUser && user) {
-      appts = getStaffAppointments(dateKey, user.id);
+      appts = getStaffAppointments(dateKey, user.id, selectedStoreId);
     } else if (techFilter !== 'all') {
-      appts = getStaffAppointments(dateKey, techFilter);
+      appts = getStaffAppointments(dateKey, techFilter, selectedStoreId);
     } else {
-      appts = getAppointments(dateKey);
+      appts = getAppointments(dateKey, selectedStoreId);
     }
 
     // For today, only show appointments that haven't ended yet
@@ -361,7 +365,7 @@ export default function AppointmentsScreen() {
     }
 
     return appts.sort((a, b) => a.startMin - b.startMin);
-  }, [selectedDate, techFilter, search, isStaffUser, user]);
+  }, [selectedDate, techFilter, search, isStaffUser, user, selectedStoreId]);
 
   const groupedUpcoming = useMemo(() => groupByTime(upcomingAppts), [upcomingAppts]);
 
@@ -370,11 +374,11 @@ export default function AppointmentsScreen() {
     const dateKey = fmtKey(pastDate);
     let appts: Appointment[];
     if (isStaffUser && user) {
-      appts = getStaffAppointments(dateKey, user.id);
+      appts = getStaffAppointments(dateKey, user.id, selectedStoreId);
     } else if (pastTechFilter !== 'all') {
-      appts = getStaffAppointments(dateKey, pastTechFilter);
+      appts = getStaffAppointments(dateKey, pastTechFilter, selectedStoreId);
     } else {
-      appts = getAppointments(dateKey);
+      appts = getAppointments(dateKey, selectedStoreId);
     }
 
     // Mark all as finished

@@ -1,7 +1,7 @@
 import type { Appointment } from '../types/models';
 import { fmtKey } from '../utils/time';
 import { SERVICES } from './services';
-import { CALENDAR_STAFF } from './staff';
+import { getCalendarStaffForStore, CALENDAR_STAFF } from './staff';
 import { CLIENTS } from './clients';
 
 function mulberry32(seed: number) {
@@ -39,8 +39,8 @@ const PRICES: Record<string, number> = {
 const APPT_TYPE_KEYS = ['chosen-tech', 'any-tech', 'new-customer', 'online'] as const;
 
 // ─── Mutable appointment store ─────────────────────────
-// Manually added appointments (from booking flow) keyed by dateKey
 const addedAppointments: Map<string, Appointment[]> = new Map();
+const appointmentOverrides: Map<string, Partial<Appointment>> = new Map();
 let nextAddedId = 9000;
 
 export function addAppointment(appt: Omit<Appointment, 'id' | 'apptNum'>): Appointment {
@@ -56,21 +56,33 @@ export function addAppointment(appt: Omit<Appointment, 'id' | 'apptNum'>): Appoi
   return full;
 }
 
-export function getAppointments(dateKey: string): Appointment[] {
+// ─── Core generation — per store + date ────────────────
+
+/** Cache key = "storeId|dateKey" */
+const generationCache: Map<string, Appointment[]> = new Map();
+
+function generateForStoreDate(storeId: string, dateKey: string): Appointment[] {
+  const cacheKey = `${storeId}|${dateKey}`;
+  const cached = generationCache.get(cacheKey);
+  if (cached) return cached;
+
   const date = new Date(dateKey + 'T00:00:00');
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-  const rand = mulberry32((date.getTime() / 86400000) | 0);
+  // Seed includes storeId hash so each store gets different appointments
+  const storeHash = storeId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const rand = mulberry32(((date.getTime() / 86400000) | 0) + storeHash * 997);
   const appts: Appointment[] = [];
   let id = 1;
 
-  const techs = CALENDAR_STAFF.filter((s) => s.role === 'Staff');
+  const techs = getCalendarStaffForStore(storeId).filter((s) => s.role === 'Staff');
 
   techs.forEach((s) => {
-    if (rand() < 0.12) return;
-
     let cursor = s.shift[0] * 60 + Math.floor(rand() * 30);
     const end = s.shift[1] * 60;
-    const targetCount = isWeekend ? 7 + Math.floor(rand() * 3) : 5 + Math.floor(rand() * 3);
+    // Keep Sofia's schedule light so we can demo booking into her open slots
+    const targetCount = s.id === 'sofia'
+      ? 3
+      : isWeekend ? 7 + Math.floor(rand() * 3) : 5 + Math.floor(rand() * 3);
     let count = 0;
 
     while (cursor < end - 30 && count < targetCount) {
@@ -82,7 +94,7 @@ export function getAppointments(dateKey: string): Appointment[] {
       const typeKey = APPT_TYPE_KEYS[Math.floor(rand() * APPT_TYPE_KEYS.length)];
 
       appts.push({
-        id: `apt_${dateKey}_${id}`,
+        id: `apt_${storeId}_${dateKey}_${id}`,
         apptNum: String(100 + id),
         staffId: s.id,
         date: dateKey,
@@ -104,27 +116,71 @@ export function getAppointments(dateKey: string): Appointment[] {
     }
   });
 
-  // Merge in manually added appointments
-  const added = addedAppointments.get(dateKey);
-  if (added) appts.push(...added);
-
+  generationCache.set(cacheKey, appts);
   return appts;
 }
 
-// Pre-generate today and nearby dates
+const ALL_STORE_IDS = ['store_wv', 'store_ue', 'store_bk'];
+
+/**
+ * Get appointments for a date, optionally filtered by store.
+ * storeId='all' or undefined returns combined appointments from all stores.
+ */
+export function getAppointments(dateKey: string, storeId?: string | 'all'): Appointment[] {
+  const storeIds = (!storeId || storeId === 'all') ? ALL_STORE_IDS : [storeId];
+  const generated = storeIds.flatMap((sid) => generateForStoreDate(sid, dateKey));
+
+  // Merge in manually added appointments
+  const added = addedAppointments.get(dateKey);
+  const all = added ? [...generated, ...added] : generated;
+
+  // Apply any overrides
+  return all.map((a) => {
+    const overrides = appointmentOverrides.get(a.id);
+    return overrides ? { ...a, ...overrides } : a;
+  });
+}
+
+export function updateAppointment(id: string, updates: Partial<Appointment>): void {
+  const existing = appointmentOverrides.get(id) ?? {};
+  appointmentOverrides.set(id, { ...existing, ...updates });
+}
+
 const today = new Date();
 const todayKey = fmtKey(today);
 
-export function getAppointmentsForDate(date: Date): Appointment[] {
-  return getAppointments(fmtKey(date));
+export function getAppointmentsForDate(date: Date, storeId?: string | 'all'): Appointment[] {
+  return getAppointments(fmtKey(date), storeId);
 }
 
-export function getTodayAppointments(): Appointment[] {
-  return getAppointments(todayKey);
+export function getTodayAppointments(storeId?: string | 'all'): Appointment[] {
+  return getAppointments(todayKey, storeId);
 }
 
-export function getStaffAppointments(dateKey: string, staffId: string): Appointment[] {
-  return getAppointments(dateKey).filter(
+export function getStaffAppointments(dateKey: string, staffId: string, storeId?: string | 'all'): Appointment[] {
+  return getAppointments(dateKey, storeId).filter(
     (a) => a.staffId === staffId || a.staffIds?.includes(staffId)
   );
+}
+
+/**
+ * Get appointments for a date range (inclusive), optionally filtered by store.
+ * Used by reports, payroll, and earnings pages.
+ */
+export function getAppointmentsForRange(
+  startDate: Date,
+  endDate: Date,
+  storeId?: string | 'all'
+): Appointment[] {
+  const result: Appointment[] = [];
+  const cursor = new Date(startDate);
+  cursor.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  while (cursor <= end) {
+    result.push(...getAppointments(fmtKey(cursor), storeId));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return result;
 }

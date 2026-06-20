@@ -58,13 +58,15 @@ export default function AppointmentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   // Parse the appointment ID to extract the date key
-  // Format: apt_YYYY-MM-DD_N
+  // Format: apt_storeId_YYYY-MM-DD_N (new) or apt_YYYY-MM-DD_N (legacy/added)
   const appointment = useMemo<Appointment | null>(() => {
     if (!id) return null;
     const parts = id.split('_');
     if (parts.length < 3) return null;
-    const dateKey = `${parts[1]}`;
-    const allAppts = getAppointments(dateKey);
+    // Try to find a date part (YYYY-MM-DD pattern)
+    const datePart = parts.find((p) => /^\d{4}-\d{2}-\d{2}$/.test(p));
+    if (!datePart) return null;
+    const allAppts = getAppointments(datePart);
     return allAppts.find((a) => a.id === id) ?? null;
   }, [id]);
 

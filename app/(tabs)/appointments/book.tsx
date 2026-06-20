@@ -33,7 +33,7 @@ import { useTranslation } from '../../../src/contexts/I18nContext';
 import { useStore } from '../../../src/contexts/StoreContext';
 import { BOOKING_CLIENTS } from '../../../src/data/clients';
 import { SERVICES, SERVICE_CATEGORIES, APPT_TYPES } from '../../../src/data/services';
-import { CALENDAR_STAFF } from '../../../src/data/staff';
+import { CALENDAR_STAFF, getCalendarStaffForStore } from '../../../src/data/staff';
 import { getStaffAppointments, addAppointment } from '../../../src/data/appointments';
 import { STORES } from '../../../src/data/stores';
 import { fmtKey, fmtTime, formatDate, DAY_START_MIN, DAY_END_MIN } from '../../../src/utils/time';
@@ -246,9 +246,12 @@ function ServiceConfigSheet({
   const [techSearch, setTechSearch] = useState('');
   const [showTechDropdown, setShowTechDropdown] = useState(false);
 
+  const { selectedStoreId } = useStore();
+  const storeStaff = useMemo(() => getCalendarStaffForStore(selectedStoreId), [selectedStoreId]);
+
   const techsForBooking = useMemo(() => {
-    return CALENDAR_STAFF.filter((t) => t.role === 'Staff');
-  }, []);
+    return storeStaff.filter((t) => t.role === 'Staff');
+  }, [storeStaff]);
 
   const filteredTechs = useMemo(() => {
     if (!techSearch) return techsForBooking;
@@ -258,7 +261,7 @@ function ServiceConfigSheet({
     );
   }, [techSearch, techsForBooking]);
 
-  const selectedTechData = techId ? CALENDAR_STAFF.find((t) => t.id === techId) : null;
+  const selectedTechData = techId ? storeStaff.find((t) => t.id === techId) : null;
 
   // ─── Schedule data ────────────────────
   const HOUR_PX = 100;

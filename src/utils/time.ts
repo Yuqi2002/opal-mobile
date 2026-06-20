@@ -64,4 +64,18 @@ export function buildDateStrip(today: Date, count = 14): Date[] {
 
 export const DAY_START_MIN = 480;
 export const DAY_END_MIN = 1200;
+
+/**
+ * Returns the real time during business hours (8 AM – 8 PM),
+ * or a fake 10:00 AM today when outside business hours.
+ * This keeps the POC demo useful during evening presentations.
+ */
+export function getDemoNow(): Date {
+  const now = new Date();
+  const h = now.getHours();
+  if (h >= 8 && h < 20) return now;
+  const fake = new Date(now);
+  fake.setHours(10, 0, 0, 0);
+  return fake;
+}
 export const DURATION_OPTIONS = [15, 30, 45, 60, 75, 90, 105, 120];

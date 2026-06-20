@@ -102,6 +102,7 @@ export default function StaffDetailScreen() {
     schedule: defaultSchedule(),
     compensationType: 'commission',
     commissionRate: 50, hourlyRate: null,
+    storeId: user?.primaryStore ?? 'store_wv',
   };
 
   const initial = isNew ? empty : staff;

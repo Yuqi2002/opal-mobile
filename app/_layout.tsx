@@ -9,6 +9,7 @@ import { I18nProvider } from '../src/contexts/I18nContext';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StoreGate } from '../src/components/StorePicker';
+import { ActiveServiceProvider } from '../src/contexts/ActiveServiceContext';
 
 export default function RootLayout() {
   // Fix iOS Safari: set viewport-fit=cover so safe area insets work,
@@ -22,7 +23,8 @@ export default function RootLayout() {
         'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
       );
     }
-    document.documentElement.style.setProperty('padding-bottom', 'env(safe-area-inset-bottom)');
+    // Removed: padding-bottom on <html> doesn't affect RN Web's absolute layout.
+    // Safe area is handled per-component (e.g. tab bar bottom inset).
   }, []);
   const [fontsLoaded] = useFonts({
     Jost_300Light,
@@ -45,16 +47,18 @@ export default function RootLayout() {
         <I18nProvider>
           <AuthProvider>
             <StoreProvider>
-              <StatusBar style="auto" />
-              <View style={{ flex: 1 }}>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="login" />
-                  <Stack.Screen name="(tabs)" />
-                  <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
-                </Stack>
-                <StoreGate />
-              </View>
+              <ActiveServiceProvider>
+                <StatusBar style="auto" />
+                <View style={{ flex: 1 }}>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="index" />
+                    <Stack.Screen name="login" />
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
+                  </Stack>
+                  <StoreGate />
+                </View>
+              </ActiveServiceProvider>
             </StoreProvider>
           </AuthProvider>
         </I18nProvider>

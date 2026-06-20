@@ -11,9 +11,10 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../src/contexts/ThemeContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
+import { useStore } from '../../../src/contexts/StoreContext';
 import { StorePicker } from '../../../src/components/StorePicker';
 import { Avatar } from '../../../src/components/Avatar';
-import { PAYROLL_DATA } from '../../../src/data/reports';
+import { getPayrollData } from '../../../src/data/reports';
 import { fmt$ } from '../../../src/utils/currency';
 import { radii, shadows, spacing } from '../../../src/theme/tokens';
 
@@ -36,8 +37,10 @@ function fmtKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+type PayrollTech = ReturnType<typeof getPayrollData>['technicians'][number];
+
 /** Derive additional receipt fields from existing tech data */
-function enrichTech(tech: (typeof PAYROLL_DATA.technicians)[0]) {
+function enrichTech(tech: PayrollTech) {
   const productSales = Math.round(tech.serviceSales * 0.04);
   const totalSales = tech.serviceSales + productSales;
   const prodCommission = Math.round(productSales * 0.10 * 100) / 100;
@@ -189,6 +192,7 @@ export default function PayrollScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
+  const { selectedStoreId } = useStore();
 
   // Date range state
   const [startDate, setStartDate] = useState(() => {
@@ -202,8 +206,13 @@ export default function PayrollScreen() {
   // Tech filter: null = all
   const [selectedTechId, setSelectedTechId] = useState<string | null>(null);
 
+  const PAYROLL_DATA = useMemo(
+    () => getPayrollData(startDate, endDate, selectedStoreId),
+    [startDate, endDate, selectedStoreId]
+  );
+
   const techs = PAYROLL_DATA.technicians;
-  const enrichedTechs = useMemo(() => techs.map(enrichTech), []);
+  const enrichedTechs = useMemo(() => techs.map(enrichTech), [techs]);
   const selectedTech = selectedTechId ? enrichedTechs.find((t) => t.id === selectedTechId) : null;
 
   const techOptions = [{ id: null as string | null, label: 'All Technicians' }, ...techs.map((t) => ({ id: t.id, label: t.name }))];
