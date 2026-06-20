@@ -12,15 +12,15 @@ import { StoreGate } from '../src/components/StorePicker';
 
 export default function RootLayout() {
   // Fix iOS Safari: set viewport-fit=cover so safe area insets work,
-  // and add bottom padding so content isn't hidden behind the home indicator
+  // prevent auto-zoom on input focus, and add bottom padding for home indicator
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const meta = document.querySelector('meta[name="viewport"]');
     if (meta) {
-      const content = meta.getAttribute('content') || '';
-      if (!content.includes('viewport-fit=cover')) {
-        meta.setAttribute('content', content + ', viewport-fit=cover');
-      }
+      meta.setAttribute(
+        'content',
+        'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
+      );
     }
     document.documentElement.style.setProperty('padding-bottom', 'env(safe-area-inset-bottom)');
   }, []);
