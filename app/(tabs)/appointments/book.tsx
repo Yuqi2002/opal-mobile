@@ -18,9 +18,15 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withSpring,
+  withDelay,
+  withSequence,
   Easing,
   runOnJS,
+  interpolate,
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../../src/contexts/ThemeContext';
 import { useAuth } from '../../../src/contexts/AuthContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
@@ -284,8 +290,110 @@ function ServiceConfigSheet({
   const slotCount = Math.floor((shiftEndMin - shiftStartMin) / 15);
   const slotHeight = (15 / 60) * HOUR_PX;
 
+  // ─── Drag-to-reposition (Google Calendar style) ────
+  const [scrollEnabled, setScrollEnabledState] = useState(true);
+  const [dragTime, setDragTime] = useState<number | null>(null);
+  const displayTime = dragTime ?? time;
+
+  const dragOffsetY = useSharedValue(0);
+  const isDraggingVal = useSharedValue(false);
+  const dragScaleVal = useSharedValue(1);
+  const lastDragSnap = useSharedValue(0);
+
+  const baseTopSV = useSharedValue(0);
+  const shiftStartMinSV = useSharedValue(shiftStartMin);
+  const shiftEndMinSV = useSharedValue(shiftEndMin);
+  const durationSV = useSharedValue(service.duration);
+
+  useEffect(() => {
+    shiftStartMinSV.value = shiftStartMin;
+    shiftEndMinSV.value = shiftEndMin;
+    durationSV.value = service.duration;
+  }, [shiftStartMin, shiftEndMin, service.duration]);
+
+  useEffect(() => {
+    if (time != null) {
+      baseTopSV.value = ((time - shiftStartMin) / 60) * HOUR_PX;
+    }
+  }, [time, shiftStartMin]);
+
+  const finishDrag = useCallback((clampedMin: number) => {
+    if (!wouldOverlap(clampedMin)) {
+      setTime(clampedMin);
+    }
+    setDragTime(null);
+    setScrollEnabledState(true);
+  }, [wouldOverlap]);
+
+  const triggerHaptic = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, []);
+
+  const dragGesture = useMemo(() =>
+    Gesture.Pan()
+      .activateAfterLongPress(300)
+      .onStart(() => {
+        isDraggingVal.value = true;
+        dragScaleVal.value = withTiming(1.04, { duration: 100 });
+        runOnJS(triggerHaptic)();
+        runOnJS(setScrollEnabledState)(false);
+      })
+      .onUpdate((e) => {
+        dragOffsetY.value = e.translationY;
+        const currentTop = baseTopSV.value + e.translationY;
+        const rawMin = (currentTop / HOUR_PX) * 60 + shiftStartMinSV.value;
+        const snappedMin = Math.round(rawMin / 15) * 15;
+        const clamped = Math.max(
+          shiftStartMinSV.value,
+          Math.min(shiftEndMinSV.value - durationSV.value, snappedMin)
+        );
+        if (clamped !== lastDragSnap.value) {
+          lastDragSnap.value = clamped;
+          runOnJS(setDragTime)(clamped);
+        }
+      })
+      .onEnd(() => {
+        const currentTop = baseTopSV.value + dragOffsetY.value;
+        const rawMin = (currentTop / HOUR_PX) * 60 + shiftStartMinSV.value;
+        const snappedMin = Math.round(rawMin / 15) * 15;
+        const clamped = Math.max(
+          shiftStartMinSV.value,
+          Math.min(shiftEndMinSV.value - durationSV.value, snappedMin)
+        );
+        dragOffsetY.value = 0;
+        dragScaleVal.value = withTiming(1, { duration: 150 });
+        isDraggingVal.value = false;
+        runOnJS(finishDrag)(clamped);
+      })
+      .onFinalize(() => {
+        if (isDraggingVal.value) {
+          dragOffsetY.value = 0;
+          dragScaleVal.value = withTiming(1, { duration: 150 });
+          isDraggingVal.value = false;
+          runOnJS(setScrollEnabledState)(true);
+          runOnJS(setDragTime)(null);
+        }
+      }),
+    [triggerHaptic, finishDrag]
+  );
+
+  const animatedApptStyle = useAnimatedStyle(() => {
+    const dragging = isDraggingVal.value;
+    return {
+      top: baseTopSV.value + dragOffsetY.value,
+      transform: [{ scale: dragScaleVal.value }],
+      zIndex: dragging ? 100 : 1,
+      shadowOpacity: dragging ? 0.25 : 0,
+      shadowRadius: dragging ? 8 : 0,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: dragging ? 4 : 0 },
+      elevation: dragging ? 8 : 0,
+    };
+  });
+
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet">
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={[s.safe, { backgroundColor: colors.cream }]} edges={['top']}>
         {/* Header */}
         <View style={s.navBar}>
@@ -306,65 +414,67 @@ function ServiceConfigSheet({
           </Text>
         </View>
 
-        {/* Date Picker Row */}
-        <View style={[scs.dateRow, { borderBottomColor: colors.border }]}>
-          <Pressable
-            onPress={() => stepDate(-1)}
-            style={scs.dateStepBtn}
-            disabled={dateKey <= todayKey}
-          >
-            <Feather
-              name="chevron-left"
-              size={20}
-              color={dateKey <= todayKey ? colors.textFaint : colors.obsidian}
-            />
-          </Pressable>
-          <Pressable
-            onPress={() => setShowCalendar(!showCalendar)}
-            style={scs.dateLabelBtn}
-          >
-            <Text style={[scs.dateLabel, { color: colors.obsidian }]}>
-              {formatDate(dateObj)}
-            </Text>
-            <Feather
-              name={showCalendar ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.textMuted}
-            />
-          </Pressable>
-          <Pressable onPress={() => stepDate(1)} style={scs.dateStepBtn}>
-            <Feather name="chevron-right" size={20} color={colors.obsidian} />
-          </Pressable>
-        </View>
-
-        {/* Calendar dropdown */}
-        {showCalendar && (
-          <View
-            style={[
-              scs.calDropdown,
-              { backgroundColor: colors.warmWhite, borderBottomColor: colors.border },
-            ]}
-          >
-            <View style={s.monthNav}>
-              <Pressable onPress={prevCalMonth} style={s.monthNavBtn}>
-                <Feather name="chevron-left" size={20} color={colors.obsidian} />
-              </Pressable>
-              <Text style={[s.monthNavLabel, { color: colors.obsidian }]}>
-                {MONTHS[calMonth]} {calYear}
+        {/* Date Picker Row + popover calendar */}
+        <View style={scs.dateRowWrapper}>
+          <View style={[scs.dateRow, { borderBottomColor: colors.border }]}>
+            <Pressable
+              onPress={() => stepDate(-1)}
+              style={scs.dateStepBtn}
+              disabled={dateKey <= todayKey}
+            >
+              <Feather
+                name="chevron-left"
+                size={20}
+                color={dateKey <= todayKey ? colors.textFaint : colors.obsidian}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() => setShowCalendar(!showCalendar)}
+              style={scs.dateLabelBtn}
+            >
+              <Text style={[scs.dateLabel, { color: colors.obsidian }]}>
+                {formatDate(dateObj)}
               </Text>
-              <Pressable onPress={nextCalMonth} style={s.monthNavBtn}>
-                <Feather name="chevron-right" size={20} color={colors.obsidian} />
-              </Pressable>
-            </View>
-            <CalendarMonth
-              year={calYear}
-              month={calMonth}
-              selectedDate={dateKey}
-              onSelectDate={handleDateSelect}
-              todayKey={todayKey}
-            />
+              <Feather
+                name={showCalendar ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.textMuted}
+              />
+            </Pressable>
+            <Pressable onPress={() => stepDate(1)} style={scs.dateStepBtn}>
+              <Feather name="chevron-right" size={20} color={colors.obsidian} />
+            </Pressable>
           </View>
-        )}
+
+          {/* Calendar popover */}
+          {showCalendar && (
+            <View
+              style={[
+                scs.calPopover,
+                { backgroundColor: colors.warmWhite, borderColor: colors.border },
+              ]}
+            >
+              <View style={s.monthNav}>
+                <Pressable onPress={prevCalMonth} style={s.monthNavBtn}>
+                  <Feather name="chevron-left" size={20} color={colors.obsidian} />
+                </Pressable>
+                <Text style={[s.monthNavLabel, { color: colors.obsidian }]}>
+                  {MONTHS[calMonth]} {calYear}
+                </Text>
+                <Pressable onPress={nextCalMonth} style={s.monthNavBtn}>
+                  <Feather name="chevron-right" size={20} color={colors.obsidian} />
+                </Pressable>
+              </View>
+              <CalendarMonth
+                year={calYear}
+                month={calMonth}
+                selectedDate={dateKey}
+                onSelectDate={handleDateSelect}
+                todayKey={todayKey}
+              />
+            </View>
+          )}
+        </View>
 
         {/* Technician selector */}
         <View style={[scs.techSection, { borderBottomColor: colors.border }]}>
@@ -506,6 +616,7 @@ function ServiceConfigSheet({
             style={scs.scheduleScroll}
             contentContainerStyle={scs.scheduleContent}
             showsVerticalScrollIndicator={false}
+            scrollEnabled={scrollEnabled}
           >
             <Text style={[scs.scheduleTitle, { color: colors.textMuted }]}>
               Tap to select a time slot
@@ -593,30 +704,31 @@ function ServiceConfigSheet({
                 );
               })}
 
-              {/* New appointment preview */}
+              {/* New appointment preview — long press & drag to reposition */}
               {time != null && (
-                <View
-                  style={[
-                    scs.newApptBlock,
-                    {
-                      top: ((time - shiftStartMin) / 60) * HOUR_PX,
-                      height: Math.max((service.duration / 60) * HOUR_PX, 24),
-                      backgroundColor: colors.goldSoft,
-                      borderLeftColor: colors.goldDeep,
-                    },
-                  ]}
-                  pointerEvents="none"
-                >
-                  <Text
-                    style={[scs.newApptName, { color: colors.goldDeep }]}
-                    numberOfLines={1}
+                <GestureDetector gesture={dragGesture}>
+                  <Animated.View
+                    style={[
+                      scs.newApptBlock,
+                      {
+                        height: Math.max((service.duration / 60) * HOUR_PX, 24),
+                        backgroundColor: colors.goldSoft,
+                        borderLeftColor: colors.goldDeep,
+                      },
+                      animatedApptStyle,
+                    ]}
                   >
-                    {service.name}
-                  </Text>
-                  <Text style={[scs.newApptTime, { color: colors.goldDeep }]}>
-                    {fmtTime(time)} – {fmtTime(time + service.duration)}
-                  </Text>
-                </View>
+                    <Text
+                      style={[scs.newApptName, { color: colors.goldDeep }]}
+                      numberOfLines={1}
+                    >
+                      {service.name}
+                    </Text>
+                    <Text style={[scs.newApptTime, { color: colors.goldDeep }]}>
+                      {fmtTime(displayTime!)} – {fmtTime(displayTime! + service.duration)}
+                    </Text>
+                  </Animated.View>
+                </GestureDetector>
               )}
             </View>
           </ScrollView>
@@ -640,7 +752,11 @@ function ServiceConfigSheet({
             onPress={() =>
               onSave({ serviceId: service.id, techId, time, date: dateKey })
             }
-            style={[s.confirmBtn, { backgroundColor: colors.goldDeep }]}
+            disabled={techId === null || time === null}
+            style={[
+              s.confirmBtn,
+              { backgroundColor: techId !== null && time !== null ? colors.goldDeep : colors.textFaint },
+            ]}
           >
             <Text style={[s.confirmBtnText, { color: colors.warmWhite }]}>
               {t('done')}
@@ -648,6 +764,7 @@ function ServiceConfigSheet({
           </Pressable>
         </View>
       </SafeAreaView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -695,10 +812,24 @@ const scs = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Jost_500Medium',
   },
-  calDropdown: {
+  dateRowWrapper: {
+    zIndex: 10,
+  },
+  calPopover: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
     paddingHorizontal: 16,
-    paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
   },
   techSection: {
     paddingHorizontal: 16,
@@ -824,6 +955,28 @@ export default function BookScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const restSectionY = useRef(0);
 
+  // ─── Validation highlight ──────────────────────────
+  const MUTED_RED = '#B05050';
+  const sectionYs = useRef<Record<string, number>>({ client: 0, date: 0, services: 0 });
+  const [errorField, setErrorField] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const errorShake = useSharedValue(0);
+  const errorOpacity = useSharedValue(0);
+  const bannerTranslateY = useSharedValue(20);
+  const bannerOpacity = useSharedValue(0);
+
+  const errorBorderStyle = useAnimatedStyle(() => ({
+    borderColor: `rgba(176, 80, 80, ${errorOpacity.value})`,
+    borderWidth: interpolate(errorOpacity.value, [0, 1], [0, 2]),
+    borderRadius: 14,
+    transform: [{ translateX: errorShake.value }],
+  }));
+
+  const bannerStyle = useAnimatedStyle(() => ({
+    opacity: bannerOpacity.value,
+    transform: [{ translateY: bannerTranslateY.value }],
+  }));
+
   // ─── Store + Client ─────────────────────────────────
   const singleStore = userStores.length === 1;
   const [storeId, setStoreId] = useState<string | null>(
@@ -853,8 +1006,29 @@ export default function BookScreen() {
   const [notes, setNotes] = useState('');
   const [selectedApptType, setSelectedApptType] = useState('chosen-tech');
 
+  // ─── Confirmation overlay ───────────────────────────
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationData, setConfirmationData] = useState<{ client: string; services: string; date: string } | null>(null);
+  const confirmBgOpacity = useSharedValue(0);
+  const confirmCheckScale = useSharedValue(0);
+  const confirmCheckOpacity = useSharedValue(0);
+  const confirmTextOpacity = useSharedValue(0);
+  const confirmTextTranslateY = useSharedValue(20);
+
+  const confirmBgStyle = useAnimatedStyle(() => ({
+    opacity: confirmBgOpacity.value,
+  }));
+  const confirmCheckStyle = useAnimatedStyle(() => ({
+    opacity: confirmCheckOpacity.value,
+    transform: [{ scale: confirmCheckScale.value }],
+  }));
+  const confirmTextStyle = useAnimatedStyle(() => ({
+    opacity: confirmTextOpacity.value,
+    transform: [{ translateY: confirmTextTranslateY.value }],
+  }));
+
   // ─── Reveal animation ────────────────────────────────
-  const showRest = storeId !== null && selectedClient !== null;
+  const showRest = storeId !== null;
   const revealProgress = useSharedValue(showRest ? 1 : 0);
   const [restMounted, setRestMounted] = useState(showRest);
 
@@ -890,8 +1064,12 @@ export default function BookScreen() {
   const filteredClients = useMemo(() => {
     if (!clientSearch) return BOOKING_CLIENTS.slice(0, 8);
     const q = clientSearch.toLowerCase();
+    const qDigits = q.replace(/\D/g, '');
     return BOOKING_CLIENTS.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.phone.includes(q)
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.phone.includes(q) ||
+        (qDigits.length > 0 && c.phone.replace(/\D/g, '').includes(qDigits))
     ).slice(0, 8);
   }, [clientSearch]);
 
@@ -937,18 +1115,68 @@ export default function BookScreen() {
     setConfiguringService(null);
   };
 
-  const handleConfirm = () => {
-    if (selectedServices.length === 0) {
-      Alert.alert('Missing Service', 'Please select at least one service.');
-      return;
-    }
-    if (!selectedDate) {
-      Alert.alert('Missing Date', 'Please select a date.');
-      return;
-    }
+  const unconfiguredService = selectedServices.find((svc) => {
+    const cfg = serviceConfigs[svc.id];
+    return !cfg || cfg.techId === null || cfg.time === null;
+  });
+  const allServicesConfigured = selectedServices.length > 0 && !unconfiguredService;
+  const canConfirm = !!selectedClient && selectedServices.length > 0 && !!selectedDate && allServicesConfigured;
 
-    const clientName = selectedClient!.name;
-    const clientVip = selectedClient!.vip;
+  const fieldLabels: Record<string, string> = {
+    client: 'Please select a client',
+    date: 'Please choose a date',
+    services: 'Please add at least one service',
+    serviceConfig: unconfiguredService
+      ? `Assign a technician & time for ${unconfiguredService.name}`
+      : 'Assign technician & time for all services',
+  };
+
+  const highlightMissing = useCallback((field: string) => {
+    // Haptic
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+    // Show banner
+    setErrorMessage(fieldLabels[field] ?? 'Missing field');
+    bannerTranslateY.value = 20;
+    bannerOpacity.value = 0;
+    bannerTranslateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+    bannerOpacity.value = withTiming(1, { duration: 200 });
+
+    // serviceConfig highlights the services section
+    const sectionKey = field === 'serviceConfig' ? 'services' : field;
+    setErrorField(sectionKey);
+    const y = sectionYs.current[sectionKey] ?? 0;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 60), animated: true });
+
+    errorOpacity.value = withTiming(1, { duration: 200 });
+    errorShake.value = withSequence(
+      withTiming(-6, { duration: 50 }),
+      withTiming(6, { duration: 50 }),
+      withTiming(-4, { duration: 50 }),
+      withTiming(4, { duration: 50 }),
+      withTiming(0, { duration: 50 }),
+    );
+
+    // Fade out everything
+    setTimeout(() => {
+      bannerOpacity.value = withTiming(0, { duration: 300 });
+      bannerTranslateY.value = withTiming(20, { duration: 300 });
+      errorOpacity.value = withTiming(0, { duration: 400 });
+      setTimeout(() => {
+        setErrorField(null);
+        setErrorMessage(null);
+      }, 400);
+    }, 2000);
+  }, []);
+
+  const handleConfirm = () => {
+    if (!selectedClient) { highlightMissing('client'); return; }
+    if (!selectedDate) { highlightMissing('date'); return; }
+    if (selectedServices.length === 0) { highlightMissing('services'); return; }
+    if (!allServicesConfigured) { highlightMissing('serviceConfig'); return; }
+
+    const clientName = selectedClient.name;
+    const clientVip = selectedClient.vip;
 
     if (selectedServices.length === 1) {
       // ─── Single-service appointment ───
@@ -1020,11 +1248,25 @@ export default function BookScreen() {
       });
     }
 
-    Alert.alert(
-      'Booking Confirmed',
-      `${clientName} — ${selectedServices.map((sv) => sv.name).join(', ')}\n${selectedDate}`
-    );
-    router.replace('/(tabs)/appointments');
+    // Show animated confirmation overlay
+    setConfirmationData({
+      client: clientName,
+      services: selectedServices.map((sv) => sv.name).join(', '),
+      date: formatDate(new Date(selectedDate + 'T00:00:00')),
+    });
+    setShowConfirmation(true);
+
+    // Sequence: bg fades in → check pops → text slides up
+    confirmBgOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
+    confirmCheckScale.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 180 }));
+    confirmCheckOpacity.value = withDelay(200, withTiming(1, { duration: 200 }));
+    confirmTextOpacity.value = withDelay(500, withTiming(1, { duration: 300 }));
+    confirmTextTranslateY.value = withDelay(500, withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic) }));
+
+    // Navigate away after animation
+    setTimeout(() => {
+      router.replace('/(tabs)/appointments');
+    }, 2000);
   };
 
   const apptTypes = APPT_TYPES.filter((a) => a.key !== 'misc' && a.key !== 'walk-in');
@@ -1136,104 +1378,8 @@ export default function BookScreen() {
             </View>
           )}
 
-          {/* ─── Client ──────────────────── */}
-          <View style={s.formSection}>
-            <View style={s.sectionHeader}>
-              <SectionNumber num={singleStore ? '01' : '02'} />
-              <Text style={[s.sectionTitle, { color: colors.obsidian }]}>{t('bkClient')}</Text>
-            </View>
-
-            {selectedClient ? (
-              <View
-                style={[
-                  s.selectedClientCard,
-                  { backgroundColor: colors.warmWhite },
-                  shadows.card,
-                ]}
-              >
-                <View style={s.selectedClientInfo}>
-                  <Text style={[s.selectedClientName, { color: colors.obsidian }]}>
-                    {selectedClient.name}
-                  </Text>
-                  <Text style={[s.selectedClientPhone, { color: colors.textMuted }]}>
-                    {selectedClient.phone}
-                  </Text>
-                  {selectedClient.vip && <StatusBadge status="vip" />}
-                </View>
-                <Pressable
-                  onPress={() => {
-                    setSelectedClient(null);
-                    setClientSearch('');
-                  }}
-                  style={s.clearClientBtn}
-                >
-                  <Feather name="x" size={16} color={colors.textMuted} />
-                </Pressable>
-              </View>
-            ) : (
-              <View>
-                <View style={[s.searchContainer, { backgroundColor: colors.creamDark }]}>
-                  <Feather
-                    name="search"
-                    size={16}
-                    color={colors.textMuted}
-                    style={{ marginRight: 8 }}
-                  />
-                  <TextInput
-                    style={[s.searchInput, { color: colors.obsidian }]}
-                    value={clientSearch}
-                    onChangeText={(text) => {
-                      setClientSearch(text);
-                      setShowClientDropdown(true);
-                    }}
-                    onFocus={() => setShowClientDropdown(true)}
-                    placeholder={t('bkSearchClients')}
-                    placeholderTextColor={colors.textMuted}
-                  />
-                  {clientSearch.length > 0 && (
-                    <Pressable onPress={() => setClientSearch('')}>
-                      <Feather name="x" size={16} color={colors.textMuted} />
-                    </Pressable>
-                  )}
-                </View>
-
-                {showClientDropdown && (
-                  <View
-                    style={[
-                      s.dropdown,
-                      { backgroundColor: colors.warmWhite, borderColor: colors.border },
-                      shadows.elevated,
-                    ]}
-                  >
-                    {filteredClients.map((client) => (
-                      <Pressable
-                        key={client.id}
-                        onPress={() => {
-                          setSelectedClient(client);
-                          setClientSearch('');
-                          setShowClientDropdown(false);
-                        }}
-                        style={[s.dropdownItem, { borderBottomColor: colors.border }]}
-                      >
-                        <View style={s.dropdownItemLeft}>
-                          <Text style={[s.dropdownItemName, { color: colors.obsidian }]}>
-                            {client.name}
-                          </Text>
-                          <Text style={[s.dropdownItemSub, { color: colors.textMuted }]}>
-                            {client.phone}
-                          </Text>
-                        </View>
-                        {client.vip && <StatusBadge status="vip" />}
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
-          </View>
-
           {/* ═══════════════════════════════════════════════════
-              REST OF FORM — revealed when store + client set
+              REST OF FORM — revealed when store is set
               ═══════════════════════════════════════════════════ */}
           {restMounted && (
             <Animated.View
@@ -1242,13 +1388,115 @@ export default function BookScreen() {
                 restSectionY.current = e.nativeEvent.layout.y;
               }}
             >
+              {/* ─── Client ──────────────────── */}
+              <Animated.View
+                style={[s.formSection, errorField === 'client' && errorBorderStyle]}
+                onLayout={(e) => { sectionYs.current.client = e.nativeEvent.layout.y + restSectionY.current; }}
+              >
+                <View style={s.sectionHeader}>
+                  <SectionNumber num={singleStore ? '01' : '02'} />
+                  <Text style={[s.sectionTitle, { color: colors.obsidian }]}>{t('bkClient')}</Text>
+                </View>
+
+                {selectedClient ? (
+                  <View
+                    style={[
+                      s.selectedClientCard,
+                      { backgroundColor: colors.warmWhite },
+                      shadows.card,
+                    ]}
+                  >
+                    <View style={s.selectedClientInfo}>
+                      <Text style={[s.selectedClientName, { color: colors.obsidian }]}>
+                        {selectedClient.name}
+                      </Text>
+                      <Text style={[s.selectedClientPhone, { color: colors.textMuted }]}>
+                        {selectedClient.phone}
+                      </Text>
+                      {selectedClient.vip && <StatusBadge status="vip" />}
+                    </View>
+                    <Pressable
+                      onPress={() => {
+                        setSelectedClient(null);
+                        setClientSearch('');
+                      }}
+                      style={s.clearClientBtn}
+                    >
+                      <Feather name="x" size={16} color={colors.textMuted} />
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View>
+                    <View style={[s.searchContainer, { backgroundColor: colors.creamDark }]}>
+                      <Feather
+                        name="search"
+                        size={16}
+                        color={colors.textMuted}
+                        style={{ marginRight: 8 }}
+                      />
+                      <TextInput
+                        style={[s.searchInput, { color: colors.obsidian }]}
+                        value={clientSearch}
+                        onChangeText={(text) => {
+                          setClientSearch(text);
+                          setShowClientDropdown(true);
+                        }}
+                        onFocus={() => setShowClientDropdown(true)}
+                        placeholder={t('bkSearchClients')}
+                        placeholderTextColor={colors.textMuted}
+                      />
+                      {clientSearch.length > 0 && (
+                        <Pressable onPress={() => setClientSearch('')}>
+                          <Feather name="x" size={16} color={colors.textMuted} />
+                        </Pressable>
+                      )}
+                    </View>
+
+                    {showClientDropdown && (
+                      <View
+                        style={[
+                          s.dropdown,
+                          { backgroundColor: colors.warmWhite, borderColor: colors.border },
+                          shadows.elevated,
+                        ]}
+                      >
+                        {filteredClients.map((client) => (
+                          <Pressable
+                            key={client.id}
+                            onPress={() => {
+                              setSelectedClient(client);
+                              setClientSearch('');
+                              setShowClientDropdown(false);
+                            }}
+                            style={[s.dropdownItem, { borderBottomColor: colors.border }]}
+                          >
+                            <View style={s.dropdownItemLeft}>
+                              <Text style={[s.dropdownItemName, { color: colors.obsidian }]}>
+                                {client.name}
+                              </Text>
+                              <Text style={[s.dropdownItemSub, { color: colors.textMuted }]}>
+                                {client.phone}
+                              </Text>
+                            </View>
+                            {client.vip && <StatusBadge status="vip" />}
+                          </Pressable>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                )}
+              </Animated.View>
+
               {/* Divider */}
               <View style={s.formSection}>
                 <View style={[s.divider, { backgroundColor: colors.border }]} />
               </View>
 
               {/* ─── Date ────────────────────────── */}
-              <View style={s.formSection}>
+              <Animated.View
+                style={[s.formSection, errorField === 'date' && errorBorderStyle]}
+                onLayout={(e) => { sectionYs.current.date = e.nativeEvent.layout.y + restSectionY.current; }}
+              >
                 <View style={s.sectionHeader}>
                   <SectionNumber num={singleStore ? '02' : '03'} />
                   <Text style={[s.sectionTitle, { color: colors.obsidian }]}>Date</Text>
@@ -1273,10 +1521,13 @@ export default function BookScreen() {
                   onSelectDate={setSelectedDate}
                   todayKey={todayKey}
                 />
-              </View>
+              </Animated.View>
 
               {/* ─── Services ─────────────────────── */}
-              <View style={s.formSection}>
+              <Animated.View
+                style={[s.formSection, errorField === 'services' && errorBorderStyle]}
+                onLayout={(e) => { sectionYs.current.services = e.nativeEvent.layout.y + restSectionY.current; }}
+              >
                 <View style={s.sectionHeader}>
                   <SectionNumber num={singleStore ? '03' : '04'} />
                   <Text style={[s.sectionTitle, { color: colors.obsidian }]}>{t('bkServices')}</Text>
@@ -1438,7 +1689,7 @@ export default function BookScreen() {
                     </Text>
                   </View>
                 )}
-              </View>
+              </Animated.View>
 
               {/* ─── Notes ────────────────────────── */}
               <View style={s.formSection}>
@@ -1507,7 +1758,15 @@ export default function BookScreen() {
           {!restMounted && <View style={s.bottomSpacer} />}
         </ScrollView>
 
-        {/* Bottom bar — only show confirm when rest is visible */}
+        {/* Validation error banner — floats above bottom bar */}
+        {showRest && errorMessage && (
+          <Animated.View style={[s.errorBanner, { backgroundColor: MUTED_RED }, bannerStyle]}>
+            <Feather name="alert-circle" size={14} color="#F5F0E8" />
+            <Text style={s.errorBannerText}>{errorMessage}</Text>
+          </Animated.View>
+        )}
+
+        {/* Bottom bar */}
         {showRest && (
           <View
             style={[s.bottomBar, { backgroundColor: colors.cream, borderTopColor: colors.border }]}
@@ -1519,7 +1778,10 @@ export default function BookScreen() {
             )}
             <Pressable
               onPress={handleConfirm}
-              style={[s.confirmBtn, { backgroundColor: colors.goldDeep }]}
+              style={[
+                s.confirmBtn,
+                { backgroundColor: canConfirm ? colors.goldDeep : colors.textFaint },
+              ]}
             >
               <Text style={[s.confirmBtnText, { color: colors.warmWhite }]}>
                 {t('bkConfirm')}
@@ -1545,6 +1807,23 @@ export default function BookScreen() {
           onSave={handleServiceConfigSave}
           onCancel={() => setConfiguringService(null)}
         />
+      )}
+
+      {/* Confirmation overlay */}
+      {showConfirmation && confirmationData && (
+        <Animated.View style={[s.confirmOverlay, confirmBgStyle]}>
+          <View style={s.confirmContent}>
+            <Animated.View style={[s.confirmCheckCircle, confirmCheckStyle]}>
+              <Feather name="check" size={36} color="#F5F0E8" />
+            </Animated.View>
+            <Animated.View style={confirmTextStyle}>
+              <Text style={s.confirmTitle}>Booking Confirmed</Text>
+              <Text style={s.confirmClient}>{confirmationData.client}</Text>
+              <Text style={s.confirmDetail}>{confirmationData.services}</Text>
+              <Text style={s.confirmDetail}>{confirmationData.date}</Text>
+            </Animated.View>
+          </View>
+        </Animated.View>
       )}
     </SafeAreaView>
   );
@@ -1955,9 +2234,9 @@ const s = StyleSheet.create({
   bottomBar: {
     borderTopWidth: 1,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 34,
-    gap: 8,
+    paddingTop: 8,
+    paddingBottom: 28,
+    gap: 6,
   },
   bottomTotal: {
     fontSize: 13,
@@ -1977,4 +2256,67 @@ const s = StyleSheet.create({
   },
 
   bottomSpacer: { height: 24 },
+
+  // Validation error banner
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: 16,
+    marginBottom: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  errorBannerText: {
+    fontSize: 12,
+    fontFamily: 'Jost_500Medium',
+    color: '#F5F0E8',
+    flex: 1,
+  },
+
+  // Confirmation overlay
+  confirmOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#1A1A18',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  confirmContent: {
+    alignItems: 'center',
+    gap: 24,
+  },
+  confirmCheckCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#D6BC8A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmTitle: {
+    fontSize: 22,
+    fontFamily: 'Jost_600SemiBold',
+    color: '#F5F0E8',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  confirmClient: {
+    fontSize: 17,
+    fontFamily: 'Jost_500Medium',
+    color: '#D6BC8A',
+    textAlign: 'center',
+  },
+  confirmDetail: {
+    fontSize: 14,
+    fontFamily: 'Jost_400Regular',
+    color: 'rgba(245, 240, 232, 0.6)',
+    textAlign: 'center',
+    marginTop: 2,
+  },
 });
