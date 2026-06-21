@@ -984,11 +984,7 @@ function StaffHome() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }} edges={['top']}>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={{ flex: 1 }}>
         {/* Header with large avatar */}
         <View style={styles.header}>
           <View style={styles.staffHeaderRow}>
@@ -1068,19 +1064,20 @@ function StaffHome() {
           </View>
         )}
 
-        {/* My Schedule — Today */}
-        <View style={styles.section}>
+        {/* My Schedule — Today — flexes to fill remaining space */}
+        <View style={[styles.section, { flex: 1, marginBottom: 0 }]}>
           <SectionHeader title={`${t('dashMySchedule')} · ${t('today')}`} showFilament />
           <ScheduleList
             appointments={myAppts}
             t={t}
             nextApptId={!activeAppt && nextAppt ? nextAppt.id : undefined}
             onSlideStart={handleSlideStart}
+            flexFill
           />
         </View>
 
-        {/* Book Appointment */}
-        <View style={styles.section}>
+        {/* Book Appointment — always visible at bottom */}
+        <View style={{ paddingVertical: spacing.base }}>
           <View style={styles.actionsRow}>
             <Pressable
               style={[styles.actionPill, { backgroundColor: colors.gold }]}
@@ -1093,9 +1090,7 @@ function StaffHome() {
             </Pressable>
           </View>
         </View>
-
-        <View style={{ height: spacing.xl }} />
-      </ScrollView>
+      </View>
 
       {/* "Service started!" toast overlay */}
       {showStarted && (
