@@ -43,6 +43,11 @@ const addedAppointments: Map<string, Appointment[]> = new Map();
 const appointmentOverrides: Map<string, Partial<Appointment>> = new Map();
 let nextAddedId = 9000;
 
+// Track the most recently created appointment so the list screen can scroll/highlight it
+let _lastCreated: { id: string; date: string } | null = null;
+export function getLastCreatedAppt() { return _lastCreated; }
+export function clearLastCreatedAppt() { _lastCreated = null; }
+
 export function addAppointment(appt: Omit<Appointment, 'id' | 'apptNum'>): Appointment {
   const id = nextAddedId++;
   const full: Appointment = {
@@ -53,6 +58,7 @@ export function addAppointment(appt: Omit<Appointment, 'id' | 'apptNum'>): Appoi
   const list = addedAppointments.get(appt.date) ?? [];
   list.push(full);
   addedAppointments.set(appt.date, list);
+  _lastCreated = { id: full.id, date: full.date };
   return full;
 }
 

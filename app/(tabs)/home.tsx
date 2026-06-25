@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -37,12 +37,15 @@ import { BarChart, LineChart } from '../../src/components/BarChart';
 import { shadows, radii, spacing } from '../../src/theme/tokens';
 import { SlideToStart } from '../../src/components/SlideToStart';
 import { useActiveService } from '../../src/contexts/ActiveServiceContext';
+import { subscribeNewAppt } from '../../src/hooks/useNewApptHighlight';
+import { useScheduleLayout } from '../../src/hooks/useScheduleLayout';
+import { DAY_START_MIN, DAY_END_MIN } from '../../src/utils/time';
 import type { RoleId } from '../../src/types/models';
 
 // ─── Helpers ────────────────────────────────────────────
 
 function greetingKey(t: (k: string) => string): string {
-  const h = getDemoNow().getHours();
+  const h = new Date().getHours();
   if (h >= 5 && h < 12) return t('greetMorning');
   if (h >= 12 && h < 17) return t('greetAfternoon');
   return t('greetEvening');
@@ -221,6 +224,269 @@ function ScheduleList({
   );
 }
 
+// ─── Calendar Schedule View (staff home) ──────────────
+
+const MIN_PX = 1.5; // pixels per minute — 90px per hour, ~1080px total
+const CALENDAR_LEFT = 50; // width of the time-label gutter
+const CARD_MIN_H = 70;
+const ACTIVE_CARD_MIN_H = 120;
+
+function ScheduleCalendar({
+  appointments,
+  t,
+  nextApptId,
+  onSlideStart,
+  activeAppt,
+  startedAt,
+  onEditActive,
+  onCompleteActive,
+}: {
+  appointments: Appointment[];
+  t: (k: string) => string;
+  nextApptId?: string;
+  onSlideStart?: (appt: Appointment) => void;
+  activeAppt?: Appointment | null;
+  startedAt?: number | null;
+  onEditActive?: () => void;
+  onCompleteActive?: () => void;
+}) {
+  const { colors, mode } = useTheme();
+  const scrollRef = useRef<ScrollView>(null);
+  const demoNow = getDemoNow();
+  const nowMin = demoNow.getHours() * 60 + demoNow.getMinutes();
+
+  const totalHeight = (DAY_END_MIN - DAY_START_MIN) * MIN_PX;
+
+  // Auto-scroll to current time on mount
+  useEffect(() => {
+    const offset = Math.max(0, (nowMin - DAY_START_MIN) * MIN_PX - 80);
+    setTimeout(() => scrollRef.current?.scrollTo({ y: offset, animated: false }), 50);
+  }, []);
+
+  // Now-line position updates each minute
+  const [currentMin, setCurrentMin] = useState(nowMin);
+  useEffect(() => {
+    const id = setInterval(() => {
+      const n = getDemoNow();
+      setCurrentMin(n.getHours() * 60 + n.getMinutes());
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const cardText = mode === 'dark' ? '#FFFFFF' : colors.obsidian;
+  const cardGold = mode === 'dark' ? '#F5DFA0' : colors.goldDeep;
+
+  // Build hour + half-hour markers
+  const markers: { min: number; label: string; isHour: boolean }[] = [];
+  for (let m = DAY_START_MIN; m <= DAY_END_MIN; m += 30) {
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    const isHour = mm === 0;
+    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const label = isHour ? `${hour12} ${suffix}` : `${hour12}:30`;
+    markers.push({ min: m, label, isHour });
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ height: totalHeight + 40, paddingBottom: 40 }}
+      >
+        {/* Time markers */}
+        {markers.map(({ min, label, isHour }) => {
+          const top = (min - DAY_START_MIN) * MIN_PX;
+          return (
+            <View
+              key={min}
+              style={[
+                calStyles.markerRow,
+                { top },
+              ]}
+            >
+              <Text
+                style={[
+                  calStyles.markerLabel,
+                  {
+                    color: isHour ? colors.textMuted : colors.textFaint,
+                    fontFamily: isHour ? 'Jost_500Medium' : 'Jost_400Regular',
+                    fontSize: isHour ? 11 : 10,
+                  },
+                ]}
+              >
+                {label}
+              </Text>
+              <View
+                style={[
+                  calStyles.markerLine,
+                  {
+                    backgroundColor: colors.border,
+                    opacity: isHour ? 1 : 0.5,
+                    height: isHour ? StyleSheet.hairlineWidth * 2 : StyleSheet.hairlineWidth,
+                  },
+                ]}
+              />
+            </View>
+          );
+        })}
+
+        {/* Now indicator */}
+        {currentMin >= DAY_START_MIN && currentMin <= DAY_END_MIN && (
+          <View
+            style={[
+              calStyles.nowRow,
+              { top: (currentMin - DAY_START_MIN) * MIN_PX },
+            ]}
+          >
+            <View style={[calStyles.nowDot, { backgroundColor: colors.sage }]} />
+            <View style={[calStyles.nowLine, { backgroundColor: colors.sage }]} />
+          </View>
+        )}
+
+        {/* Appointment cards */}
+        {appointments.map((appt) => {
+          const isActive = activeAppt?.id === appt.id;
+          const isPast =
+            !isActive &&
+            (appt.endMin < currentMin || appt.status === 'ended' || appt.status === 'finished');
+          const isNext = appt.id === nextApptId;
+
+          const top = (Math.max(appt.startMin, DAY_START_MIN) - DAY_START_MIN) * MIN_PX;
+          const calcHeight =
+            (Math.min(appt.endMin, DAY_END_MIN) - Math.max(appt.startMin, DAY_START_MIN)) * MIN_PX;
+          const minH = isActive ? ACTIVE_CARD_MIN_H : CARD_MIN_H;
+          const height = Math.max(calcHeight, minH);
+
+          if (isActive && startedAt && onEditActive && onCompleteActive) {
+            return (
+              <View
+                key={appt.id}
+                style={[calStyles.cardSlot, { top, minHeight: height, left: CALENDAR_LEFT + 4, right: 8 }]}
+              >
+                <OngoingCard
+                  appt={appt}
+                  startedAt={startedAt}
+                  onEdit={onEditActive}
+                  onComplete={onCompleteActive}
+                  t={t}
+                />
+              </View>
+            );
+          }
+
+          return (
+            <View
+              key={appt.id}
+              style={[
+                calStyles.cardSlot,
+                { top, minHeight: height, left: CALENDAR_LEFT + 4, right: 8, opacity: isPast ? 0.5 : 1 },
+              ]}
+            >
+              <Card style={calStyles.apptCard}>
+                <View style={calStyles.cardHeader}>
+                  <Text style={[calStyles.cardTime, { color: cardGold }]}>
+                    {fmtTime(appt.startMin)} - {fmtTime(appt.endMin)}
+                  </Text>
+                  <StatusBadge status={appt.status} />
+                </View>
+                <Text style={[calStyles.cardClient, { color: cardGold }]} numberOfLines={1}>
+                  {appt.client}
+                </Text>
+                <Text style={[calStyles.cardService, { color: cardText }]} numberOfLines={1}>
+                  {appt.service}
+                </Text>
+                {isNext && onSlideStart && !isPast && (
+                  <SlideToStart
+                    label={t('asSlideToStart')}
+                    onStart={() => onSlideStart(appt)}
+                  />
+                )}
+              </Card>
+            </View>
+          );
+        })}
+      </ScrollView>
+
+      {/* Bottom fade */}
+      <LinearGradient
+        colors={[withAlpha(colors.cream, 0), colors.cream]}
+        style={calStyles.fade}
+        pointerEvents="none"
+      />
+    </View>
+  );
+}
+
+const calStyles = StyleSheet.create({
+  markerRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  markerLabel: {
+    width: CALENDAR_LEFT - 4,
+    textAlign: 'right',
+    paddingRight: 8,
+  },
+  markerLine: {
+    flex: 1,
+  },
+  nowRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  nowDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: CALENDAR_LEFT - 4,
+  },
+  nowLine: {
+    flex: 1,
+    height: 2,
+  },
+  cardSlot: {
+    position: 'absolute',
+  },
+  apptCard: {
+    flex: 1,
+    padding: 10,
+    gap: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTime: {
+    fontSize: 12,
+    fontFamily: 'Jost_500Medium',
+  },
+  cardClient: {
+    fontSize: 14,
+    fontFamily: 'Jost_600SemiBold',
+  },
+  cardService: {
+    fontSize: 12,
+    fontFamily: 'Jost_400Regular',
+  },
+  fade: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+  },
+});
+
 // ─── Owner Home ─────────────────────────────────────────
 
 function OwnerHome() {
@@ -291,6 +557,11 @@ function OwnerHome() {
               value={`${KPI_DATA.utilization.value}%`}
               subtitle={t('dashUtilization')}
               progress={KPI_DATA.utilization.value}
+            />
+            <KPICard
+              value={String(KPI_DATA.avgTurn.value)}
+              subtitle={t('dashAvgTurn')}
+              secondaryLabel="turns / tech"
             />
           </ScrollView>
         </View>
@@ -428,7 +699,10 @@ function ReceptionistHome() {
   const router = useRouter();
   const { selectedStoreId } = useStore();
 
-  const todayAppts = useMemo(() => getTodayAppointments(selectedStoreId), [selectedStoreId]);
+  const [bookingRev, setBookingRev] = useState(0);
+  useEffect(() => subscribeNewAppt(() => setBookingRev((r) => r + 1)), []);
+
+  const todayAppts = useMemo(() => getTodayAppointments(selectedStoreId), [selectedStoreId, bookingRev]);
 
   const demoNow = getDemoNow();
   const nowMin = demoNow.getHours() * 60 + demoNow.getMinutes();
@@ -917,6 +1191,11 @@ function StaffHome() {
   const { t } = useTranslation();
   const router = useRouter();
   const { activeAppt, startedAt, startService, completeService, revision } = useActiveService();
+  const { scheduleLayout } = useScheduleLayout();
+
+  // Re-read schedule when a new appointment is booked
+  const [bookingRev, setBookingRev] = useState(0);
+  useEffect(() => subscribeNewAppt(() => setBookingRev((r) => r + 1)), []);
 
   const todayKey = fmtKey(new Date());
 
@@ -929,7 +1208,15 @@ function StaffHome() {
             .filter((a) => a.endMin >= nowMin && a.status !== 'started' && a.status !== 'ended')
             .sort((a, b) => a.startMin - b.startMin)
         : [],
-    [todayKey, user, nowMin, revision]
+    [todayKey, user, nowMin, revision, bookingRev]
+  );
+
+  const allMyAppts_cal = useMemo(
+    () =>
+      scheduleLayout === 'calendar' && user
+        ? getStaffAppointments(todayKey, user.id).sort((a, b) => a.startMin - b.startMin)
+        : [],
+    [scheduleLayout, todayKey, user, revision, bookingRev]
   );
 
   // The single next upcoming appointment (first non-started, non-ended)
@@ -1046,7 +1333,7 @@ function StaffHome() {
         </View>
 
         {/* Ongoing Service Section */}
-        {activeApptLive && startedAt && (
+        {activeApptLive && startedAt && scheduleLayout !== 'calendar' && (
           <View style={styles.section}>
             <SectionHeader title={t('asOngoing')} showFilament />
             <OngoingCard
@@ -1067,13 +1354,32 @@ function StaffHome() {
         {/* My Schedule — Today — flexes to fill remaining space */}
         <View style={[styles.section, { flex: 1, marginBottom: 0 }]}>
           <SectionHeader title={`${t('dashMySchedule')} · ${t('today')}`} showFilament />
-          <ScheduleList
-            appointments={myAppts}
-            t={t}
-            nextApptId={!activeAppt && nextAppt ? nextAppt.id : undefined}
-            onSlideStart={handleSlideStart}
-            flexFill
-          />
+          {scheduleLayout === 'calendar' ? (
+            <ScheduleCalendar
+              appointments={allMyAppts_cal}
+              t={t}
+              nextApptId={!activeAppt && nextAppt ? nextAppt.id : undefined}
+              onSlideStart={handleSlideStart}
+              activeAppt={activeApptLive}
+              startedAt={startedAt ?? null}
+              onEditActive={() =>
+                activeApptLive &&
+                router.push({
+                  pathname: '/(tabs)/appointments/edit-active',
+                  params: { id: activeApptLive.id, date: activeApptLive.date },
+                })
+              }
+              onCompleteActive={completeService}
+            />
+          ) : (
+            <ScheduleList
+              appointments={myAppts}
+              t={t}
+              nextApptId={!activeAppt && nextAppt ? nextAppt.id : undefined}
+              onSlideStart={handleSlideStart}
+              flexFill
+            />
+          )}
         </View>
 
         {/* Book Appointment — always visible at bottom */}

@@ -53,7 +53,7 @@ const en: Record<string, string> = {
 
   // Home
   dashTodayRevenue: "Today's Revenue", dashAppointments: 'Appointments',
-  dashAvgTicket: 'Avg Ticket', dashUtilization: 'Utilization',
+  dashAvgTicket: 'Avg Ticket', dashUtilization: 'Utilization', dashAvgTurn: 'Avg Turn',
   dashRevenueThisWeek: 'Revenue this week',
   dashRevenueThisMonth: 'Revenue this month',
   dashTopPerformers: 'Top performers',
@@ -97,6 +97,11 @@ const en: Record<string, string> = {
   moreBusinessInfo: 'Business Info', moreBusinessHours: 'Business Hours',
   moreNotifications: 'Notifications', moreAppearance: 'Appearance',
   moreLanguage: 'Language',
+  scheduleView: 'Schedule view',
+  scheduleList: 'List',
+  scheduleListDesc: 'Appointments in a simple list',
+  scheduleCalendar: 'Calendar',
+  scheduleCalendarDesc: 'Appointments on a time grid',
   moreBusiness: 'BUSINESS', moreManage: 'MANAGE', morePreferences: 'PREFERENCES',
 
   // Reports
@@ -117,7 +122,8 @@ const en: Record<string, string> = {
   // Earnings
   earnTitle: 'My Earnings', earnTotalEarnings: 'Total Earnings',
   earnHoursWorked: 'Hours worked', earnApptsCompleted: 'Appointments completed',
-  earnAvgTicket: 'Avg ticket', earnDailyBreakdown: 'Daily breakdown',
+  earnAvgTicket: 'Avg ticket', earnDaysWorked: 'Days worked', earnPerDay: 'Earnings / day',
+  earnDailyBreakdown: 'Daily breakdown',
 
   // Profile
   profileTitle: 'Profile', profileFirstName: 'First name',
@@ -232,7 +238,7 @@ const vi: Record<string, string> = {
   navHome: 'Trang chủ', navAppts: 'Lịch hẹn', navTurns: 'Lượt', navMore: 'Thêm',
 
   dashTodayRevenue: 'Doanh thu hôm nay', dashAppointments: 'Lịch hẹn',
-  dashAvgTicket: 'TB/Lượt', dashUtilization: 'Hiệu suất',
+  dashAvgTicket: 'TB/Lượt', dashUtilization: 'Hiệu suất', dashAvgTurn: 'TB Lượt/Người',
   dashBookAppt: 'Đặt lịch', dashViewReports: 'Xem báo cáo',
   dashBooked: 'Đã đặt', dashWaiting: 'Đang chờ',
   dashInService: 'Đang phục vụ', dashReadyCheckout: 'Sẵn sàng thanh toán',
@@ -255,6 +261,11 @@ const vi: Record<string, string> = {
   moreBusinessInfo: 'Thông tin salon', moreBusinessHours: 'Giờ hoạt động',
   moreNotifications: 'Thông báo', moreAppearance: 'Giao diện',
   moreLanguage: 'Ngôn ngữ',
+  scheduleView: 'Chế độ lịch',
+  scheduleList: 'Danh sách',
+  scheduleListDesc: 'Cuộc hẹn trong danh sách',
+  scheduleCalendar: 'Lịch',
+  scheduleCalendarDesc: 'Cuộc hẹn trên lưới thời gian',
   moreBusiness: 'KINH DOANH', moreManage: 'QUẢN LÝ', morePreferences: 'TÙY CHỌN',
 
   storeAllStores: 'Tất cả cửa hàng',

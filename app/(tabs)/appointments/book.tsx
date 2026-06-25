@@ -35,6 +35,7 @@ import { BOOKING_CLIENTS } from '../../../src/data/clients';
 import { SERVICES, SERVICE_CATEGORIES, APPT_TYPES } from '../../../src/data/services';
 import { CALENDAR_STAFF, getCalendarStaffForStore } from '../../../src/data/staff';
 import { getStaffAppointments, addAppointment } from '../../../src/data/appointments';
+import { emitNewAppt } from '../../../src/hooks/useNewApptHighlight';
 import { STORES } from '../../../src/data/stores';
 import { fmtKey, fmtTime, formatDate, DAY_START_MIN, DAY_END_MIN } from '../../../src/utils/time';
 import { fmtCurrency } from '../../../src/utils/currency';
@@ -1180,6 +1181,7 @@ export default function BookScreen() {
 
     const clientName = selectedClient.name;
     const clientVip = selectedClient.vip;
+    let newApptId = '';
 
     if (selectedServices.length === 1) {
       // ─── Single-service appointment ───
@@ -1188,7 +1190,7 @@ export default function BookScreen() {
       const techId = cfg?.techId ?? user?.id ?? 'sofia';
       const startMin = cfg?.time ?? DAY_START_MIN;
 
-      addAppointment({
+      const created = addAppointment({
         staffId: techId,
         date: selectedDate,
         startMin,
@@ -1202,6 +1204,7 @@ export default function BookScreen() {
         notes: notes || null,
         price: svc.price,
       });
+      newApptId = created.id;
     } else {
       // ─── Multi-service appointment ───
       const allTechIds = new Set<string>();
@@ -1233,7 +1236,7 @@ export default function BookScreen() {
       const primaryTechId = apptServices[0].techId;
       const compositeName = selectedServices.map((sv) => sv.name).join(' + ');
 
-      addAppointment({
+      const created = addAppointment({
         staffId: primaryTechId,
         staffIds: Array.from(allTechIds),
         date: selectedDate,
@@ -1249,6 +1252,7 @@ export default function BookScreen() {
         price: totalPrice,
         services: apptServices,
       });
+      newApptId = created.id;
     }
 
     // Show animated confirmation overlay
@@ -1267,7 +1271,10 @@ export default function BookScreen() {
     confirmTextTranslateY.value = withDelay(500, withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic) }));
 
     // Navigate away after animation
+    const _newApptId = newApptId;
+    const _newApptDate = selectedDate;
     setTimeout(() => {
+      emitNewAppt({ id: _newApptId, date: _newApptDate });
       router.replace('/(tabs)/appointments');
     }, 2000);
   };

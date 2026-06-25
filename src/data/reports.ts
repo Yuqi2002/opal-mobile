@@ -1,6 +1,7 @@
 // Dynamic report data derived from appointment generation
 import { getAppointments, getAppointmentsForRange } from './appointments';
 import { getTechsForStore, STAFF_MAP } from './staff';
+import { generateTurnQueueState } from './turns';
 import { fmtKey } from '../utils/time';
 import type { Appointment } from '../types/models';
 
@@ -84,11 +85,18 @@ export function getKpiData(storeId?: string | 'all') {
   });
   const utilization = totalShiftMins > 0 ? Math.min(100, Math.round((totalBookedMins / totalShiftMins) * 100)) : 0;
 
+  // Average turns completed per tech today
+  const turnStates = generateTurnQueueState(storeId);
+  const avgTurn = turnStates.length > 0
+    ? +(turnStates.reduce((s, t) => s + t.turnsCompleted, 0) / turnStates.length).toFixed(1)
+    : 0;
+
   return {
     todayRevenue: { value: todayRev, change, sparkline },
     appointments: { value: totalAppts, remaining },
     avgTicket: { value: avgTicket, change: avgChange, sparkline: avgSparkline },
     utilization: { value: utilization },
+    avgTurn: { value: avgTurn },
   };
 }
 
@@ -280,6 +288,15 @@ export function getPayrollData(startDate: Date, endDate: Date, storeId?: string 
     const deductions = Math.round(commission * 0.08 + totalHours * 0.6);
     const totalPayout = commission + tips - deductions;
 
+    // Count actual work days in range
+    let daysWorked = 0;
+    const dwCursor = new Date(startDate);
+    while (dwCursor <= endDate) {
+      const dow = dayOfWeekMap[dwCursor.getDay()];
+      if (!tech.schedule[dow].off) daysWorked++;
+      dwCursor.setDate(dwCursor.getDate() + 1);
+    }
+
     return {
       id: tech.id,
       name: `${tech.first} ${tech.last}`,
@@ -288,6 +305,7 @@ export function getPayrollData(startDate: Date, endDate: Date, storeId?: string 
       compensationType: tech.compensationType,
       commissionRate: rate,
       hours: Math.round(totalHours * 10) / 10,
+      daysWorked,
       serviceSales,
       commission,
       tips,
@@ -332,6 +350,7 @@ export function getStaffEarnings(
   let totalAppts = 0;
   let totalRevAll = 0;
   let totalTips = 0;
+  let daysWorked = 0;
 
   const cursor = new Date(startDate);
   while (cursor <= endDate) {
@@ -345,6 +364,7 @@ export function getStaffEarnings(
     if (sched.off) {
       dailyBreakdown.push({ date: fmtShortDate(cursor), hours: 0, appts: 0, earnings: 0, isOff: true });
     } else {
+      daysWorked++;
       const startH = parseInt(sched.start.split(':')[0]);
       const endH = parseInt(sched.end.split(':')[0]);
       const hours = endH - startH;
@@ -381,6 +401,7 @@ export function getStaffEarnings(
     totalEarnings,
     breakdown: { commission: totalCommission, tips: totalTips, hourly: hourlyEarnings },
     hoursWorked: Math.round(totalHours * 10) / 10,
+    daysWorked,
     apptsCompleted: totalAppts,
     avgTicket: totalAppts > 0 ? Math.round(totalRevAll / totalAppts) : 0,
     dailyBreakdown,

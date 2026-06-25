@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSequence,
+  interpolate,
+  interpolateColor,
+  Easing,
+} from 'react-native-reanimated';
 import { useTheme } from '../../../src/contexts/ThemeContext';
 import { useAuth } from '../../../src/contexts/AuthContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
 import { getAppointments, getStaffAppointments } from '../../../src/data/appointments';
+import { subscribeNewAppt } from '../../../src/hooks/useNewApptHighlight';
 import { getCalendarStaffForStore, CALENDAR_STAFF } from '../../../src/data/staff';
 import { useStore } from '../../../src/contexts/StoreContext';
 import { APPT_TYPES } from '../../../src/data/services';
@@ -27,7 +38,7 @@ import { SearchBar } from '../../../src/components/SearchBar';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { Card } from '../../../src/components/Card';
 import { StorePicker } from '../../../src/components/StorePicker';
-import { shadows } from '../../../src/theme/tokens';
+import { shadows, radii } from '../../../src/theme/tokens';
 import type { Appointment } from '../../../src/types/models';
 
 type TabMode = 'upcoming' | 'past';
@@ -274,6 +285,42 @@ function TechDropdown({
   );
 }
 
+// ─── Glow Wrapper (single pulse for newly created appts) ───
+
+function GlowCard({ children, active }: { children: React.ReactNode; active: boolean }) {
+  const glow = useSharedValue(0);
+
+  useEffect(() => {
+    if (active) {
+      glow.value = withDelay(
+        800,
+        withSequence(
+          withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }),
+          withTiming(0, { duration: 600, easing: Easing.in(Easing.cubic) })
+        )
+      );
+    }
+  }, [active]);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    borderRadius: radii.lg,
+    borderWidth: interpolate(glow.value, [0, 1], [0, 2]),
+    borderColor: interpolateColor(
+      glow.value,
+      [0, 1],
+      ['rgba(214,188,138,0)', 'rgba(214,188,138,1)']
+    ),
+    shadowColor: '#D6BC8A',
+    shadowOpacity: interpolate(glow.value, [0, 1], [0, 0.7]),
+    shadowRadius: interpolate(glow.value, [0, 1], [0, 16]),
+    shadowOffset: { width: 0, height: 0 },
+  }));
+
+  if (!active) return <>{children}</>;
+
+  return <Animated.View style={glowStyle}>{children}</Animated.View>;
+}
+
 // ─── Appointment Card ──────────────────────────────────
 
 function ApptCard({ appt, onPress }: { appt: Appointment; onPress: () => void }) {
@@ -323,6 +370,40 @@ export default function AppointmentsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [search, setSearch] = useState('');
   const [techFilter, setTechFilter] = useState('all');
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  const scrollRef = useRef<ScrollView>(null);
+  const newCardRef = useRef<View>(null);
+
+  // Listen for newly created appointments from the booking flow
+  useEffect(() => {
+    return subscribeNewAppt(({ id, date }) => {
+      setSelectedDate(new Date(date + 'T00:00:00'));
+      setHighlightId(id);
+    });
+  }, []);
+
+  // Scroll to the highlighted card once it's laid out
+  const scrollToNewCard = useCallback(() => {
+    if (!highlightId) return;
+    setTimeout(() => {
+      if (!newCardRef.current || !scrollRef.current) return;
+      if (Platform.OS === 'web') {
+        const node = newCardRef.current as unknown as HTMLElement;
+        if (node && typeof node.scrollIntoView === 'function') {
+          node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else {
+        (newCardRef.current as any).measureLayout(
+          scrollRef.current,
+          (_: number, y: number) => {
+            scrollRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: true });
+          },
+          () => {}
+        );
+      }
+    }, 100);
+  }, [highlightId]);
 
   // Past/Completed tab state
   const yesterday = new Date();
@@ -441,13 +522,23 @@ export default function AppointmentsScreen() {
                   {items.length}
                 </Text>
               </View>
-              {items.map((appt) => (
-                <ApptCard
-                  key={appt.id}
-                  appt={appt}
-                  onPress={() => navigateToDetail(appt.id)}
-                />
-              ))}
+              {items.map((appt) => {
+                const isNew = appt.id === highlightId;
+                return (
+                  <View
+                    key={appt.id}
+                    ref={isNew ? newCardRef : undefined}
+                    onLayout={isNew ? scrollToNewCard : undefined}
+                  >
+                    <GlowCard active={isNew}>
+                      <ApptCard
+                        appt={appt}
+                        onPress={() => navigateToDetail(appt.id)}
+                      />
+                    </GlowCard>
+                  </View>
+                );
+              })}
             </View>
           );
         })}
@@ -553,7 +644,7 @@ export default function AppointmentsScreen() {
         </Pressable>
       </View>
 
-      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={s.scroll} showsVerticalScrollIndicator={false}>
         {tab === 'upcoming' ? (
           <>
             {/* Calendar + Tech dropdown row */}

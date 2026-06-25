@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../src/contexts/ThemeContext';
@@ -12,10 +13,6 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { generateTurnQueueState, TURN_SERVICES } from '../../src/data/turns';
 import type { TurnTechState, TurnTechStatus, CompletedService } from '../../src/types/models';
 import { radii } from '../../src/theme/tokens';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 // ─── Status indicator configs ─────────────────────
 const STATUS_SERVING_COLOR = '#2D6A4F';
@@ -135,6 +132,28 @@ function TechCard({
   const sColor = statusColor(tech.status);
   const sText = statusText(tech.status, tech.station, t);
 
+  // Animated expand/collapse
+  const contentHeight = useSharedValue(0);
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withTiming(expanded ? 1 : 0, {
+      duration: 280,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    });
+  }, [expanded]);
+
+  const expandStyle = useAnimatedStyle(() => ({
+    height: contentHeight.value > 0 ? progress.value * contentHeight.value : 0,
+    opacity: progress.value,
+    overflow: 'hidden' as const,
+  }));
+
+  const handleContentLayout = useCallback((e: any) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) contentHeight.value = h;
+  }, []);
+
   return (
     <Pressable
       onPress={onToggle}
@@ -169,16 +188,21 @@ function TechCard({
         />
       </View>
 
-      {/* Expanded: completed services */}
-      {expanded && tech.completedServices.length > 0 && (
-        <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
-          <Text style={[styles.expandedTitle, { color: colors.textMuted }]}>
-            COMPLETED TODAY
-          </Text>
-          {tech.completedServices.map((svc, idx) => (
-            <ServiceRow key={`${svc.serviceId}-${idx}`} svc={svc} colors={colors} />
-          ))}
-        </View>
+      {/* Expanded: completed services (always rendered for measurement, animated clip) */}
+      {tech.completedServices.length > 0 && (
+        <Animated.View style={expandStyle}>
+          <View
+            onLayout={handleContentLayout}
+            style={[styles.expandedSection, { borderTopColor: colors.border }]}
+          >
+            <Text style={[styles.expandedTitle, { color: colors.textMuted }]}>
+              COMPLETED TODAY
+            </Text>
+            {tech.completedServices.map((svc, idx) => (
+              <ServiceRow key={`${svc.serviceId}-${idx}`} svc={svc} colors={colors} />
+            ))}
+          </View>
+        </Animated.View>
       )}
     </Pressable>
   );
@@ -193,16 +217,15 @@ export default function TurnsScreen() {
   const { selectedStoreId } = useStore();
   const turnState = useMemo(() => generateTurnQueueState(selectedStoreId), [selectedStoreId]);
 
-  // Sort by turnsCompleted descending (leaderboard rank)
+  // Sort by turnsCompleted ascending (lowest turns = next up = rank #1)
   const sortedTechs = useMemo(
-    () => [...turnState].sort((a, b) => b.turnsCompleted - a.turnsCompleted),
+    () => [...turnState].sort((a, b) => a.turnsCompleted - b.turnsCompleted),
     [turnState]
   );
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const toggleExpand = useCallback((techId: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedId((prev) => (prev === techId ? null : techId));
   }, []);
 

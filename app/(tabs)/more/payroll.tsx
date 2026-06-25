@@ -400,7 +400,8 @@ export default function PayrollScreen() {
             <ReceiptRow label="Payroll Date" value={dateRangeStr} colors={colors} />
             <ReceiptRow label="Technician" value={selectedTech.name} colors={colors} />
             <ReceiptRow label="Payroll Type" value="Commission" colors={colors} />
-            <ReceiptRow label="# of Work Days" value={String(selectedTech.workDays)} colors={colors} />
+            <ReceiptRow label="# of Work Days" value={String(selectedTech.daysWorked)} colors={colors} />
+            <ReceiptRow label="Earnings / Day" value={selectedTech.daysWorked > 0 ? fmt$(Math.round(selectedTech.totalPayout / selectedTech.daysWorked)) : '-'} colors={colors} />
 
             {/* Section: Technician Pay */}
             <View style={styles.receiptSection}>
