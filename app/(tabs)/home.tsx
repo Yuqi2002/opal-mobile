@@ -15,6 +15,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { useTranslation } from '../../src/contexts/I18nContext';
 import { useStore } from '../../src/contexts/StoreContext';
 import { isOwner, isReceptionist, isStaff } from '../../src/utils/permissions';
+import { useStaffPolicies } from '../../src/contexts/StaffPoliciesContext';
 import { getGreeting, formatDate, fmtTime, fmtKey, getDemoNow, DAY_START_MIN, DAY_END_MIN } from '../../src/utils/time';
 import { fmt$ } from '../../src/utils/currency';
 import {
@@ -1450,6 +1451,7 @@ function StaffHome() {
   const { t } = useTranslation();
   const router = useRouter();
   const { activeAppt, startedAt, startService, completeService, revision } = useActiveService();
+  const { staffCanBook } = useStaffPolicies();
 
   // Re-read schedule when a new appointment is booked
   const [bookingRev, setBookingRev] = useState(0);
@@ -1613,20 +1615,22 @@ function StaffHome() {
           />
         </View>
 
-        {/* Book Appointment — always visible at bottom */}
-        <View style={{ paddingVertical: spacing.base }}>
-          <View style={styles.actionsRow}>
-            <Pressable
-              style={[styles.actionPill, { backgroundColor: colors.gold }]}
-              onPress={() => router.push('/(tabs)/appointments/book')}
-            >
-              <Feather name="plus" size={16} color={colors.goldButtonText} />
-              <Text style={[styles.actionText, { color: colors.goldButtonText }]}>
-                {t('dashBookAppt')}
-              </Text>
-            </Pressable>
+        {/* Book Appointment — visible only if policy allows staff self-booking */}
+        {staffCanBook && (
+          <View style={{ paddingVertical: spacing.base }}>
+            <View style={styles.actionsRow}>
+              <Pressable
+                style={[styles.actionPill, { backgroundColor: colors.gold }]}
+                onPress={() => router.push('/(tabs)/appointments/book')}
+              >
+                <Feather name="plus" size={16} color={colors.goldButtonText} />
+                <Text style={[styles.actionText, { color: colors.goldButtonText }]}>
+                  {t('dashBookAppt')}
+                </Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+        )}
       </View>
 
       {/* "Service started!" toast overlay */}

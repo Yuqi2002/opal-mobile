@@ -191,6 +191,9 @@ const en: Record<string, string> = {
   spTurnLimitedDesc: "Staff can see everyone's turn position but not other techs' service details",
   spTurnOwnOnly: 'Own Turn Only',
   spTurnOwnOnlyDesc: 'Staff can only see their own turn and position number — not who is ahead or behind them',
+  spLastMinuteError: 'Cannot book within 1 hour of the current time',
+  spYourPosition: 'Your position:',
+  spOutOf: 'of {total}',
 
   // Appearance
   appearLight: 'Light', appearDark: 'Dark',
@@ -305,6 +308,9 @@ const vi: Record<string, string> = {
   spTurnLimitedDesc: 'Nhân viên xem được vị trí lượt nhưng không thấy chi tiết dịch vụ người khác',
   spTurnOwnOnly: 'Chỉ lượt của mình',
   spTurnOwnOnlyDesc: 'Nhân viên chỉ thấy lượt và vị trí của mình — không thấy ai trước hoặc sau',
+  spLastMinuteError: 'Không thể đặt lịch trong vòng 1 giờ tới',
+  spYourPosition: 'Vị trí của bạn:',
+  spOutOf: 'trên {total}',
 
   appearLight: 'Sáng', appearDark: 'Tối',
   langEnglish: 'English', langVietnamese: 'Tiếng Việt',

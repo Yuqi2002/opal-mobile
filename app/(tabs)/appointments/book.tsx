@@ -40,6 +40,7 @@ import { STORES } from '../../../src/data/stores';
 import { fmtKey, fmtTime, formatDate, DAY_START_MIN, DAY_END_MIN } from '../../../src/utils/time';
 import { fmtCurrency } from '../../../src/utils/currency';
 import { isStaff, canBookForOthers } from '../../../src/utils/permissions';
+import { useStaffPolicies } from '../../../src/contexts/StaffPoliciesContext';
 import { Avatar } from '../../../src/components/Avatar';
 import { StatusBadge } from '../../../src/components/StatusBadge';
 import { shadows } from '../../../src/theme/tokens';
@@ -955,6 +956,15 @@ export default function BookScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { selectedStoreId, userStores } = useStore();
+  const { staffCanBook, staffCanBookWithinHour } = useStaffPolicies();
+
+  // Redirect staff away if self-booking is disabled
+  const userRole = user?.role ?? 'r04';
+  useEffect(() => {
+    if (isStaff(userRole) && !staffCanBook) {
+      router.replace('/(tabs)/appointments');
+    }
+  }, [staffCanBook, userRole]);
 
   const scrollRef = useRef<ScrollView>(null);
   const restSectionY = useRef(0);
@@ -1133,6 +1143,7 @@ export default function BookScreen() {
     serviceConfig: unconfiguredService
       ? `Assign a technician & time for ${unconfiguredService.name}`
       : 'Assign technician & time for all services',
+    lastMinute: t('spLastMinuteError'),
   };
 
   const highlightMissing = useCallback((field: string) => {
@@ -1178,6 +1189,26 @@ export default function BookScreen() {
     if (!selectedDate) { highlightMissing('date'); return; }
     if (selectedServices.length === 0) { highlightMissing('services'); return; }
     if (!allServicesConfigured) { highlightMissing('serviceConfig'); return; }
+
+    // Block staff from booking within 1 hour of now when policy is active
+    if (isStaff(userRole) && !staffCanBookWithinHour) {
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const todayKey = fmtKey(now);
+      const cutoff = nowMin + 60;
+
+      const tooSoon = selectedServices.some((svc) => {
+        const cfg = serviceConfigs[svc.id];
+        const svcDate = cfg?.date ?? selectedDate;
+        const svcStart = cfg?.time ?? DAY_START_MIN;
+        return svcDate === todayKey && svcStart < cutoff;
+      });
+
+      if (tooSoon) {
+        highlightMissing('lastMinute');
+        return;
+      }
+    }
 
     const clientName = selectedClient.name;
     const clientVip = selectedClient.vip;

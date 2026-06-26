@@ -56,6 +56,7 @@ import {
   isReceptionist,
   isStaff,
 } from "../../../src/utils/permissions";
+import { useStaffPolicies } from "../../../src/contexts/StaffPoliciesContext";
 import { Avatar } from "../../../src/components/Avatar";
 import { StatusBadge } from "../../../src/components/StatusBadge";
 import { SearchBar } from "../../../src/components/SearchBar";
@@ -907,6 +908,8 @@ export default function AppointmentsScreen() {
   const userRole = user?.role ?? "r04";
   const canFilterByTech = isOwner(userRole) || isReceptionist(userRole);
   const isStaffUser = isStaff(userRole);
+  const { staffCanBook } = useStaffPolicies();
+  const showBookFab = !isStaffUser || staffCanBook;
 
   // Upcoming appointments
   const upcomingAppts = useMemo(() => {
@@ -1268,13 +1271,15 @@ export default function AppointmentsScreen() {
         </ScrollView>
       )}
 
-      {/* FAB */}
-      <Pressable
-        onPress={() => router.push("/(tabs)/appointments/book")}
-        style={[s.fab, { backgroundColor: colors.gold }, shadows.elevated]}
-      >
-        <Feather name="plus" size={24} color={colors.goldButtonText} />
-      </Pressable>
+      {/* FAB — hidden for staff when self-booking is disabled */}
+      {showBookFab && (
+        <Pressable
+          onPress={() => router.push("/(tabs)/appointments/book")}
+          style={[s.fab, { backgroundColor: colors.gold }, shadows.elevated]}
+        >
+          <Feather name="plus" size={24} color={colors.goldButtonText} />
+        </Pressable>
+      )}
     </SafeAreaView>
   );
 }

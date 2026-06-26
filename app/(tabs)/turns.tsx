@@ -7,6 +7,8 @@ import { useTheme } from '../../src/contexts/ThemeContext';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTranslation } from '../../src/contexts/I18nContext';
 import { useStore } from '../../src/contexts/StoreContext';
+import { useStaffPolicies } from '../../src/contexts/StaffPoliciesContext';
+import { isStaff } from '../../src/utils/permissions';
 import { StorePicker } from '../../src/components/StorePicker';
 import { Avatar } from '../../src/components/Avatar';
 import { EmptyState } from '../../src/components/EmptyState';
@@ -119,12 +121,15 @@ function TechCard({
   isCurrentUser,
   expanded,
   onToggle,
+  hideDetails,
 }: {
   tech: TurnTechState;
   rank: number;
   isCurrentUser: boolean;
   expanded: boolean;
   onToggle: () => void;
+  /** When true, hides turn count + service details (used in 'limited' visibility mode for other techs) */
+  hideDetails?: boolean;
 }) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -132,16 +137,18 @@ function TechCard({
   const sColor = statusColor(tech.status);
   const sText = statusText(tech.status, tech.station, t);
 
+  const canExpand = !hideDetails;
+
   // Animated expand/collapse
   const contentHeight = useSharedValue(0);
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    progress.value = withTiming(expanded ? 1 : 0, {
+    progress.value = withTiming(expanded && canExpand ? 1 : 0, {
       duration: 280,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     });
-  }, [expanded]);
+  }, [expanded, canExpand]);
 
   const expandStyle = useAnimatedStyle(() => ({
     height: contentHeight.value > 0 ? progress.value * contentHeight.value : 0,
@@ -156,7 +163,7 @@ function TechCard({
 
   return (
     <Pressable
-      onPress={onToggle}
+      onPress={canExpand ? onToggle : undefined}
       style={[
         styles.card,
         {
@@ -176,20 +183,24 @@ function TechCard({
             <Text style={[styles.statusLabel, { color: sColor }]}>{sText}</Text>
           </View>
         </View>
-        <View style={styles.turnCount}>
-          <Text style={[styles.turnNumber, { color: colors.obsidian }]}>{tech.turnsCompleted}</Text>
-          <Text style={[styles.turnLabel, { color: colors.textMuted }]}>turns</Text>
-        </View>
-        <Feather
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={16}
-          color={colors.textMuted}
-          style={styles.chevron}
-        />
+        {!hideDetails && (
+          <View style={styles.turnCount}>
+            <Text style={[styles.turnNumber, { color: colors.obsidian }]}>{tech.turnsCompleted}</Text>
+            <Text style={[styles.turnLabel, { color: colors.textMuted }]}>turns</Text>
+          </View>
+        )}
+        {canExpand && (
+          <Feather
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.textMuted}
+            style={styles.chevron}
+          />
+        )}
       </View>
 
       {/* Expanded: completed services (always rendered for measurement, animated clip) */}
-      {tech.completedServices.length > 0 && (
+      {canExpand && tech.completedServices.length > 0 && (
         <Animated.View style={expandStyle}>
           <View
             onLayout={handleContentLayout}
@@ -215,13 +226,33 @@ export default function TurnsScreen() {
   const { t } = useTranslation();
 
   const { selectedStoreId } = useStore();
+  const { turnQueueVisibility } = useStaffPolicies();
   const turnState = useMemo(() => generateTurnQueueState(selectedStoreId), [selectedStoreId]);
+
+  const userRole = user?.role ?? 'r04';
+  const staffUser = isStaff(userRole);
+  // Visibility mode only applies to staff — owners/receptionists always see everything
+  const effectiveVisibility = staffUser ? turnQueueVisibility : 'full';
 
   // Sort by turnsCompleted ascending (lowest turns = next up = rank #1)
   const sortedTechs = useMemo(
     () => [...turnState].sort((a, b) => a.turnsCompleted - b.turnsCompleted),
     [turnState]
   );
+
+  // For 'own-only' mode, find current user's rank in the full sorted list
+  const ownRank = useMemo(() => {
+    if (effectiveVisibility !== 'own-only') return 0;
+    const idx = sortedTechs.findIndex((t) => t.techId === user?.id);
+    return idx >= 0 ? idx + 1 : 0;
+  }, [sortedTechs, user?.id, effectiveVisibility]);
+
+  const visibleTechs = useMemo(() => {
+    if (effectiveVisibility === 'own-only') {
+      return sortedTechs.filter((t) => t.techId === user?.id);
+    }
+    return sortedTechs;
+  }, [sortedTechs, user?.id, effectiveVisibility]);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -239,8 +270,21 @@ export default function TurnsScreen() {
         </View>
       </View>
 
+      {/* Position chip for own-only mode */}
+      {effectiveVisibility === 'own-only' && ownRank > 0 && (
+        <View style={styles.positionBanner}>
+          <Text style={[styles.positionText, { color: colors.textMuted }]}>
+            {t('spYourPosition')}{' '}
+            <Text style={{ color: colors.obsidian, fontFamily: 'Jost_600SemiBold' }}>
+              #{ownRank}
+            </Text>
+            {' '}{t('spOutOf', { total: String(sortedTechs.length) })}
+          </Text>
+        </View>
+      )}
+
       {/* Tech list */}
-      {sortedTechs.length === 0 ? (
+      {visibleTechs.length === 0 ? (
         <EmptyState
           icon="layers"
           title={t('turnNoUpcoming')}
@@ -252,16 +296,25 @@ export default function TurnsScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         >
-          {sortedTechs.map((tech, idx) => (
-            <TechCard
-              key={tech.techId}
-              tech={tech}
-              rank={idx + 1}
-              isCurrentUser={tech.techId === user?.id}
-              expanded={expandedId === tech.techId}
-              onToggle={() => toggleExpand(tech.techId)}
-            />
-          ))}
+          {visibleTechs.map((tech, idx) => {
+            const isCurrent = tech.techId === user?.id;
+            // In own-only mode, show the user's actual rank; otherwise use list position
+            const rank = effectiveVisibility === 'own-only' ? ownRank : idx + 1;
+            // In limited mode, hide details for techs that are not the current user
+            const hideDetails = effectiveVisibility === 'limited' && !isCurrent;
+
+            return (
+              <TechCard
+                key={tech.techId}
+                tech={tech}
+                rank={rank}
+                isCurrentUser={isCurrent}
+                expanded={expandedId === tech.techId}
+                onToggle={() => toggleExpand(tech.techId)}
+                hideDetails={hideDetails}
+              />
+            );
+          })}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -280,6 +333,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   title: { fontSize: 20, fontFamily: 'Jost_500Medium' },
+  positionBanner: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  positionText: {
+    fontSize: 14,
+    fontFamily: 'Jost_400Regular',
+  },
   list: { flex: 1 },
   listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 10 },
 
