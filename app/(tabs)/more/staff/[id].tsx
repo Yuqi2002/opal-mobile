@@ -259,6 +259,7 @@ function StaffForm({ staff, isNew, colors, t, router }: {
   const [schedule, setSchedule] = useState<WeekSchedule>({ ...staff.schedule });
   const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set(staff.services));
   const [serviceSearch, setServiceSearch] = useState('');
+  const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
 
   const categories = useMemo(getServiceCategories, []);
 
@@ -298,9 +299,21 @@ function StaffForm({ staff, isNew, colors, t, router }: {
   function toggleService(svcId: string) {
     setSelectedServices((prev) => {
       const next = new Set(prev);
-      next.has(svcId) ? next.delete(svcId) : next.add(svcId);
+      if (next.has(svcId)) {
+        next.delete(svcId);
+        setDurationOverrides((d) => { const n = { ...d }; delete n[svcId]; return n; });
+      } else {
+        next.add(svcId);
+      }
       return next;
     });
+  }
+
+  function setDurationFromText(svcId: string, text: string) {
+    const num = parseInt(text, 10);
+    if (!isNaN(num) && num > 0) {
+      setDurationOverrides((prev) => ({ ...prev, [svcId]: num }));
+    }
   }
 
   function toggleCategoryServices(svcIds: string[]) {
@@ -715,24 +728,38 @@ function StaffForm({ staff, isNew, colors, t, router }: {
 
                   {cat.services.map((svc) => {
                     const on = selectedServices.has(svc.id);
+                    const displayDur = durationOverrides[svc.id] ?? svc.duration;
                     return (
-                      <Pressable
-                        key={svc.id}
-                        style={styles.svcItem}
-                        onPress={() => toggleService(svc.id)}
-                      >
-                        <View style={[
-                          styles.svcCheck,
-                          on
-                            ? { backgroundColor: colors.gold, borderColor: colors.gold }
-                            : { borderColor: colors.border },
-                        ]}>
-                          {on && <Feather name="check" size={12} color="#FFF" />}
-                        </View>
-                        <Text style={[styles.svcItemName, { color: on ? colors.obsidian : colors.textMuted }]}>
-                          {svc.name}
-                        </Text>
-                      </Pressable>
+                      <View key={svc.id} style={styles.svcItem}>
+                        <Pressable
+                          style={styles.svcItemToggle}
+                          onPress={() => toggleService(svc.id)}
+                        >
+                          <View style={[
+                            styles.svcCheck,
+                            on
+                              ? { backgroundColor: colors.gold, borderColor: colors.gold }
+                              : { borderColor: colors.border },
+                          ]}>
+                            {on && <Feather name="check" size={12} color="#FFF" />}
+                          </View>
+                          <Text style={[styles.svcItemName, { color: on ? colors.obsidian : colors.textMuted }]}>
+                            {svc.name}
+                          </Text>
+                        </Pressable>
+                        {on && (
+                          <View style={styles.svcDurInline}>
+                            <TextInput
+                              style={[styles.svcDurInput, { color: colors.obsidian, borderColor: colors.border }]}
+                              value={String(displayDur)}
+                              onChangeText={(text) => setDurationFromText(svc.id, text)}
+                              keyboardType="number-pad"
+                              selectTextOnFocus
+                            />
+                            <Text style={[styles.svcDurUnit, { color: colors.textMuted }]}>min</Text>
+                          </View>
+                        )}
+                      </View>
                     );
                   })}
                 </View>
@@ -926,8 +953,34 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 6,
     paddingLeft: 28,
+    paddingRight: 4,
+  },
+  svcItemToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
   },
   svcItemName: { fontSize: 13, fontFamily: 'Jost_400Regular' },
+  svcDurInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  svcDurInput: {
+    width: 46,
+    height: 30,
+    borderRadius: 6,
+    borderWidth: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    fontFamily: 'Jost_400Regular',
+    paddingVertical: 0,
+  },
+  svcDurUnit: {
+    fontSize: 12,
+    fontFamily: 'Jost_400Regular',
+  },
 
   // ─── Invite info ───────────────────────────────────────
   inviteInfo: {

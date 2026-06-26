@@ -157,6 +157,10 @@ const en: Record<string, string> = {
   // Hours
   hoursTitle: 'Business Hours', hoursClosed: 'Closed',
   hoursOpen: 'Open', hoursClose: 'Close',
+  hoursHolidaysTitle: 'Holidays & Closures',
+  hoursNoHolidays: 'No holidays set',
+  hoursAddHoliday: 'Add Holiday',
+  hoursHolidayName: 'Holiday name',
 
   // Notifications
   notifTitle: 'Notifications', notifAppointments: 'Appointments',
@@ -171,6 +175,22 @@ const en: Record<string, string> = {
   notifDaily: 'Daily', notifMorningRecap: 'Morning recap',
   notifEndOfDay: 'End of day summary',
   notifMarkAllRead: 'Mark all read',
+
+  // Staff Policies
+  moreStaffPolicies: 'Staff Policies',
+  spTitle: 'Staff Policies',
+  spBookingSection: 'BOOKING',
+  spStaffCanBook: 'Staff Self-Booking',
+  spStaffCanBookDesc: 'Allow staff to book their own appointments',
+  spBlockLastMinute: 'Block Last-Minute Booking',
+  spBlockLastMinuteDesc: 'Prevent staff from booking appointments within one hour of the current time',
+  spTurnSection: 'TURN QUEUE VISIBILITY',
+  spTurnFull: 'See Everything',
+  spTurnFullDesc: 'Staff can see all turns and service details for everyone',
+  spTurnLimited: 'Hide Service Details',
+  spTurnLimitedDesc: "Staff can see everyone's turn position but not other techs' service details",
+  spTurnOwnOnly: 'Own Turn Only',
+  spTurnOwnOnlyDesc: 'Staff can only see their own turn and position number — not who is ahead or behind them',
 
   // Appearance
   appearLight: 'Light', appearDark: 'Dark',
@@ -196,6 +216,7 @@ const en: Record<string, string> = {
 
   // Active service
   asSlideToStart: 'Slide to start',
+  asStart: 'Start',
   asOngoing: 'Ongoing',
   asElapsed: 'Elapsed',
   asEditService: 'Edit Service',
@@ -270,10 +291,31 @@ const vi: Record<string, string> = {
 
   storeAllStores: 'Tất cả cửa hàng',
   notifTitle: 'Thông báo', notifMarkAllRead: 'Đánh dấu đã đọc',
+  moreStaffPolicies: 'Chính sách nhân viên',
+  spTitle: 'Chính sách nhân viên',
+  spBookingSection: 'ĐẶT LỊCH',
+  spStaffCanBook: 'Nhân viên tự đặt lịch',
+  spStaffCanBookDesc: 'Cho phép nhân viên tự đặt lịch hẹn',
+  spBlockLastMinute: 'Chặn đặt lịch phút cuối',
+  spBlockLastMinuteDesc: 'Không cho nhân viên đặt lịch trong vòng một giờ tới',
+  spTurnSection: 'HIỂN THỊ HÀNG ĐỢI LƯỢT',
+  spTurnFull: 'Xem tất cả',
+  spTurnFullDesc: 'Nhân viên xem được tất cả lượt và chi tiết dịch vụ',
+  spTurnLimited: 'Ẩn chi tiết dịch vụ',
+  spTurnLimitedDesc: 'Nhân viên xem được vị trí lượt nhưng không thấy chi tiết dịch vụ người khác',
+  spTurnOwnOnly: 'Chỉ lượt của mình',
+  spTurnOwnOnlyDesc: 'Nhân viên chỉ thấy lượt và vị trí của mình — không thấy ai trước hoặc sau',
+
   appearLight: 'Sáng', appearDark: 'Tối',
   langEnglish: 'English', langVietnamese: 'Tiếng Việt',
 
+  hoursHolidaysTitle: 'Ngày lễ & Đóng cửa',
+  hoursNoHolidays: 'Chưa có ngày lễ',
+  hoursAddHoliday: 'Thêm ngày lễ',
+  hoursHolidayName: 'Tên ngày lễ',
+
   asSlideToStart: 'Trượt để bắt đầu',
+  asStart: 'Bắt đầu',
   asOngoing: 'Đang thực hiện',
   asEditService: 'Sửa dịch vụ',
   asAddService: 'Thêm dịch vụ',

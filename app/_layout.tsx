@@ -10,6 +10,7 @@ import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StoreGate } from '../src/components/StorePicker';
 import { ActiveServiceProvider } from '../src/contexts/ActiveServiceContext';
+import { StaffPoliciesProvider } from '../src/contexts/StaffPoliciesContext';
 
 export default function RootLayout() {
   // Fix iOS Safari / PWA: set viewport-fit=cover so safe area insets work,
@@ -74,18 +75,20 @@ export default function RootLayout() {
         <I18nProvider>
           <AuthProvider>
             <StoreProvider>
-              <ActiveServiceProvider>
-                <StatusBar style="auto" />
-                <View style={{ flex: 1 }}>
-                  <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="login" />
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
-                  </Stack>
-                  <StoreGate />
-                </View>
-              </ActiveServiceProvider>
+              <StaffPoliciesProvider>
+                <ActiveServiceProvider>
+                  <StatusBar style="auto" />
+                  <View style={{ flex: 1 }}>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="index" />
+                      <Stack.Screen name="login" />
+                      <Stack.Screen name="(tabs)" />
+                      <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
+                    </Stack>
+                    <StoreGate />
+                  </View>
+                </ActiveServiceProvider>
+              </StaffPoliciesProvider>
             </StoreProvider>
           </AuthProvider>
         </I18nProvider>

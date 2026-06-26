@@ -15,7 +15,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { useTranslation } from '../../src/contexts/I18nContext';
 import { useStore } from '../../src/contexts/StoreContext';
 import { isOwner, isReceptionist, isStaff } from '../../src/utils/permissions';
-import { getGreeting, formatDate, fmtTime, fmtKey, getDemoNow } from '../../src/utils/time';
+import { getGreeting, formatDate, fmtTime, fmtKey, getDemoNow, DAY_START_MIN, DAY_END_MIN } from '../../src/utils/time';
 import { fmt$ } from '../../src/utils/currency';
 import {
   getKpiData,
@@ -38,8 +38,6 @@ import { shadows, radii, spacing } from '../../src/theme/tokens';
 import { SlideToStart } from '../../src/components/SlideToStart';
 import { useActiveService } from '../../src/contexts/ActiveServiceContext';
 import { subscribeNewAppt } from '../../src/hooks/useNewApptHighlight';
-import { useScheduleLayout } from '../../src/hooks/useScheduleLayout';
-import { DAY_START_MIN, DAY_END_MIN } from '../../src/utils/time';
 import type { RoleId } from '../../src/types/models';
 
 // ─── Helpers ────────────────────────────────────────────
@@ -61,6 +59,10 @@ function withAlpha(hex: string, alpha: number): string {
 
 const SCHEDULE_LIST_HEIGHT = 450;
 const FADE_HEIGHT = 60;
+const CALENDAR_LEFT = 50;
+const MIN_PX = 1.5;
+const CARD_MIN_H = 70;
+const TRAILING_STRIP_W = 52;
 
 // ─── Shared Schedule List (staff + receptionist) ────────
 
@@ -224,22 +226,10 @@ function ScheduleList({
   );
 }
 
-// ─── Calendar Schedule View (staff home) ──────────────
+// ─── Owner Home ─────────────────────────────────────────
+// NOTE: ScheduleCalendar moved to appointments/index.tsx as StaffCalendarView
 
-const MIN_PX = 1.5; // pixels per minute — 90px per hour, ~1080px total
-const CALENDAR_LEFT = 50; // width of the time-label gutter
-const CARD_MIN_H = 70;
-const ACTIVE_CARD_MIN_H = 120;
-
-function ScheduleCalendar({
-  appointments,
-  t,
-  nextApptId,
-  onSlideStart,
-  activeAppt,
-  startedAt,
-  onEditActive,
-  onCompleteActive,
+function _ScheduleCalendarRemoved({
 }: {
   appointments: Appointment[];
   t: (k: string) => string;
@@ -249,6 +239,7 @@ function ScheduleCalendar({
   startedAt?: number | null;
   onEditActive?: () => void;
   onCompleteActive?: () => void;
+  onEditAppt?: (appt: Appointment) => void;
 }) {
   const { colors, mode } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
@@ -351,58 +342,234 @@ function ScheduleCalendar({
           const isPast =
             !isActive &&
             (appt.endMin < currentMin || appt.status === 'ended' || appt.status === 'finished');
-          const isNext = appt.id === nextApptId;
+          const isNext = !isActive && appt.id === nextApptId;
 
           const top = (Math.max(appt.startMin, DAY_START_MIN) - DAY_START_MIN) * MIN_PX;
           const calcHeight =
             (Math.min(appt.endMin, DAY_END_MIN) - Math.max(appt.startMin, DAY_START_MIN)) * MIN_PX;
-          const minH = isActive ? ACTIVE_CARD_MIN_H : CARD_MIN_H;
-          const height = Math.max(calcHeight, minH);
+          const height = Math.max(calcHeight, CARD_MIN_H);
 
-          if (isActive && startedAt && onEditActive && onCompleteActive) {
-            return (
-              <View
-                key={appt.id}
-                style={[calStyles.cardSlot, { top, minHeight: height, left: CALENDAR_LEFT + 4, right: 8 }]}
-              >
-                <OngoingCard
-                  appt={appt}
-                  startedAt={startedAt}
-                  onEdit={onEditActive}
-                  onComplete={onCompleteActive}
-                  t={t}
-                />
-              </View>
-            );
-          }
+          // Determine tier based on card height
+          const tier: 'full' | 'medium' | 'compact' =
+            height >= TIER_FULL ? 'full' : height >= TIER_MEDIUM ? 'medium' : 'compact';
+
+          // Whether to show the trailing action strip (medium + compact tiers)
+          const showTrailingAction = tier !== 'full' && (isNext || isActive);
+
+          // Active card — sage green background
+          const activeBg = mode === 'dark' ? '#252E24' : '#F4F7F3';
 
           return (
             <View
               key={appt.id}
               style={[
                 calStyles.cardSlot,
-                { top, minHeight: height, left: CALENDAR_LEFT + 4, right: 8, opacity: isPast ? 0.5 : 1 },
+                {
+                  top,
+                  minHeight: height,
+                  left: CALENDAR_LEFT + 4,
+                  right: 8,
+                  opacity: isPast ? 0.5 : 1,
+                  zIndex: isActive ? 5 : isNext ? 4 : 1,
+                },
               ]}
             >
-              <Card style={calStyles.apptCard}>
-                <View style={calStyles.cardHeader}>
-                  <Text style={[calStyles.cardTime, { color: cardGold }]}>
-                    {fmtTime(appt.startMin)} - {fmtTime(appt.endMin)}
-                  </Text>
-                  <StatusBadge status={appt.status} />
+              <Card
+                style={[
+                  calStyles.apptCard,
+                  { padding: 0, overflow: 'hidden' as const },
+                  isActive && {
+                    backgroundColor: activeBg,
+                    borderWidth: 2,
+                    borderColor: colors.sage,
+                  },
+                ] as any}
+              >
+                <View style={calStyles.cardRow}>
+                  {/* Card body — tappable for edit/add services */}
+                  <Pressable
+                    style={calStyles.cardBody}
+                    onPress={() => onEditAppt?.(appt)}
+                  >
+                    {/* ── TIER: FULL ── */}
+                    {tier === 'full' && (
+                      <>
+                        {/* Header row — time + status/timer */}
+                        <View style={calStyles.cardHeader}>
+                          {isActive ? (
+                            <>
+                              <View style={calStyles.activeIndicator}>
+                                <View style={[calStyles.liveDot, { backgroundColor: colors.sage }]} />
+                                <Text style={[calStyles.liveLabel, { color: colors.sage }]}>
+                                  {t('statusInProgress')}
+                                </Text>
+                              </View>
+                              <View style={calStyles.timerBadge}>
+                                <Feather name="clock" size={10} color={cardGold} />
+                                {startedAt && <CalendarElapsed startedAt={startedAt} />}
+                              </View>
+                            </>
+                          ) : (
+                            <>
+                              <Text style={[calStyles.cardTime, { color: cardGold }]}>
+                                {fmtTime(appt.startMin)} - {fmtTime(appt.endMin)}
+                              </Text>
+                              <StatusBadge status={appt.status} />
+                            </>
+                          )}
+                        </View>
+
+                        {/* Client name */}
+                        <Text style={[calStyles.cardClient, { color: cardGold }]} numberOfLines={1}>
+                          {appt.client}
+                        </Text>
+
+                        {/* Service + plus icon */}
+                        <View style={calStyles.serviceRow}>
+                          <Text style={[calStyles.cardService, { color: cardText, flex: 1 }]} numberOfLines={1}>
+                            {appt.service}
+                          </Text>
+                          <Feather name="plus" size={14} color={colors.textMuted} />
+                        </View>
+
+                        {/* Full-tier labeled action buttons */}
+                        {isActive && onEditActive && onCompleteActive && (
+                          <View style={calStyles.fullActions}>
+                            <Pressable
+                              style={[calStyles.fullEditBtn, { backgroundColor: colors.gold }]}
+                              onPress={onEditActive}
+                            >
+                              <Feather name="edit-2" size={14} color={colors.goldButtonText} />
+                              <Text style={[calStyles.fullBtnText, { color: colors.goldButtonText }]}>
+                                {t('asEditService')}
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              style={[calStyles.fullCompleteBtn, { borderColor: colors.obsidian, borderWidth: 1.5 }]}
+                              onPress={onCompleteActive}
+                            >
+                              <Feather name="check" size={14} color={colors.obsidian} />
+                              <Text style={[calStyles.fullBtnText, { color: colors.obsidian }]}>
+                                {t('asCompleteService')}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        )}
+                        {isNext && onSlideStart && !isPast && (
+                          <Pressable
+                            style={[calStyles.fullStartBtn, { backgroundColor: colors.sage }]}
+                            onPress={() => onSlideStart(appt)}
+                          >
+                            <Feather name="play" size={12} color="#FFF" />
+                            <Text style={calStyles.fullStartBtnText}>{t('asStart')}</Text>
+                          </Pressable>
+                        )}
+                      </>
+                    )}
+
+                    {/* ── TIER: MEDIUM ── */}
+                    {tier === 'medium' && (
+                      <>
+                        {/* Header — status/timer for active, status badge for others */}
+                        <View style={calStyles.cardHeader}>
+                          {isActive ? (
+                            <>
+                              <View style={calStyles.activeIndicator}>
+                                <View style={[calStyles.liveDot, { backgroundColor: colors.sage }]} />
+                                <Text style={[calStyles.liveLabel, { color: colors.sage }]}>
+                                  {t('statusInProgress')}
+                                </Text>
+                              </View>
+                              <View style={calStyles.timerBadge}>
+                                <Feather name="clock" size={10} color={cardGold} />
+                                {startedAt && <CalendarElapsed startedAt={startedAt} />}
+                              </View>
+                            </>
+                          ) : (
+                            <>
+                              <Text style={[calStyles.cardClient, { color: cardGold, flex: 1 }]} numberOfLines={1}>
+                                {appt.client}
+                              </Text>
+                              <StatusBadge status={appt.status} />
+                            </>
+                          )}
+                        </View>
+
+                        {/* Client name (active only — non-active shows in header) */}
+                        {isActive && (
+                          <Text style={[calStyles.cardClient, { color: cardGold }]} numberOfLines={1}>
+                            {appt.client}
+                          </Text>
+                        )}
+
+                        {/* Service + plus icon */}
+                        <View style={calStyles.serviceRow}>
+                          <Text style={[calStyles.cardService, { color: cardText, flex: 1 }]} numberOfLines={1}>
+                            {appt.service}
+                          </Text>
+                          <Feather name="plus" size={14} color={colors.textMuted} />
+                        </View>
+                      </>
+                    )}
+
+                    {/* ── TIER: COMPACT ── */}
+                    {tier === 'compact' && (
+                      <>
+                        {/* Line 1: client (with live dot if active) + timer */}
+                        <View style={calStyles.cardHeader}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 5 }}>
+                            {isActive && (
+                              <View style={[calStyles.liveDot, { backgroundColor: colors.sage }]} />
+                            )}
+                            <Text style={[calStyles.cardClient, { color: cardGold, flex: 1 }]} numberOfLines={1}>
+                              {appt.client}
+                            </Text>
+                          </View>
+                          {isActive && startedAt ? (
+                            <View style={calStyles.timerBadge}>
+                              <Feather name="clock" size={9} color={cardGold} />
+                              <CalendarElapsed startedAt={startedAt} />
+                            </View>
+                          ) : null}
+                        </View>
+
+                        {/* Line 2: service + plus icon */}
+                        <View style={calStyles.serviceRow}>
+                          <Text style={[calStyles.cardService, { color: cardText, flex: 1 }]} numberOfLines={1}>
+                            {appt.service}
+                          </Text>
+                          <Feather name="plus" size={12} color={colors.textMuted} />
+                        </View>
+                      </>
+                    )}
+                  </Pressable>
+
+                  {/* Trailing action strip — medium + compact tiers */}
+                  {showTrailingAction && (
+                    <Pressable
+                      style={[
+                        calStyles.trailingStrip,
+                        {
+                          backgroundColor: isActive
+                            ? (mode === 'dark' ? '#2E3A2C' : '#E8EDE6')
+                            : (mode === 'dark' ? '#2C3528' : '#E4EDE0'),
+                          borderLeftWidth: 1,
+                          borderLeftColor: isActive ? colors.sage : colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        if (isActive && onCompleteActive) onCompleteActive();
+                        else if (isNext && onSlideStart) onSlideStart(appt);
+                      }}
+                    >
+                      <Feather
+                        name={isActive ? 'check' : 'play'}
+                        size={18}
+                        color={isActive ? colors.sage : '#FFF'}
+                      />
+                    </Pressable>
+                  )}
                 </View>
-                <Text style={[calStyles.cardClient, { color: cardGold }]} numberOfLines={1}>
-                  {appt.client}
-                </Text>
-                <Text style={[calStyles.cardService, { color: cardText }]} numberOfLines={1}>
-                  {appt.service}
-                </Text>
-                {isNext && onSlideStart && !isPast && (
-                  <SlideToStart
-                    label={t('asSlideToStart')}
-                    onStart={() => onSlideStart(appt)}
-                  />
-                )}
               </Card>
             </View>
           );
@@ -419,6 +586,7 @@ function ScheduleCalendar({
   );
 }
 
+const _unusedCalStylesRemoved = true;
 const calStyles = StyleSheet.create({
   markerRow: {
     position: 'absolute',
@@ -458,8 +626,18 @@ const calStyles = StyleSheet.create({
   },
   apptCard: {
     flex: 1,
+    gap: 0,
+  },
+  // Horizontal layout: card body + optional trailing strip
+  cardRow: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  cardBody: {
+    flex: 1,
     padding: 10,
     gap: 2,
+    justifyContent: 'center',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -477,6 +655,87 @@ const calStyles = StyleSheet.create({
   cardService: {
     fontSize: 12,
     fontFamily: 'Jost_400Regular',
+  },
+  // Service row with + icon
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  // Active card indicators
+  activeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  liveLabel: {
+    fontSize: 10,
+    fontFamily: 'Jost_600SemiBold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  elapsedText: {
+    fontSize: 11,
+    fontFamily: 'Jost_500Medium',
+    color: '#A08454',
+  },
+  // Trailing action strip — full height right edge
+  trailingStrip: {
+    width: TRAILING_STRIP_W,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Full-tier labeled action buttons
+  fullActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  fullEditBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 36,
+    borderRadius: 18,
+  },
+  fullCompleteBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 36,
+    borderRadius: 18,
+  },
+  fullBtnText: {
+    fontSize: 13,
+    fontFamily: 'Jost_600SemiBold',
+  },
+  fullStartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 36,
+    borderRadius: 18,
+    marginTop: 8,
+  },
+  fullStartBtnText: {
+    fontSize: 13,
+    fontFamily: 'Jost_600SemiBold',
+    color: '#FFF',
   },
   fade: {
     position: 'absolute',
@@ -1191,7 +1450,6 @@ function StaffHome() {
   const { t } = useTranslation();
   const router = useRouter();
   const { activeAppt, startedAt, startService, completeService, revision } = useActiveService();
-  const { scheduleLayout } = useScheduleLayout();
 
   // Re-read schedule when a new appointment is booked
   const [bookingRev, setBookingRev] = useState(0);
@@ -1209,14 +1467,6 @@ function StaffHome() {
             .sort((a, b) => a.startMin - b.startMin)
         : [],
     [todayKey, user, nowMin, revision, bookingRev]
-  );
-
-  const allMyAppts_cal = useMemo(
-    () =>
-      scheduleLayout === 'calendar' && user
-        ? getStaffAppointments(todayKey, user.id).sort((a, b) => a.startMin - b.startMin)
-        : [],
-    [scheduleLayout, todayKey, user, revision, bookingRev]
   );
 
   // The single next upcoming appointment (first non-started, non-ended)
@@ -1333,7 +1583,7 @@ function StaffHome() {
         </View>
 
         {/* Ongoing Service Section */}
-        {activeApptLive && startedAt && scheduleLayout !== 'calendar' && (
+        {activeApptLive && startedAt && (
           <View style={styles.section}>
             <SectionHeader title={t('asOngoing')} showFilament />
             <OngoingCard
@@ -1354,32 +1604,13 @@ function StaffHome() {
         {/* My Schedule — Today — flexes to fill remaining space */}
         <View style={[styles.section, { flex: 1, marginBottom: 0 }]}>
           <SectionHeader title={`${t('dashMySchedule')} · ${t('today')}`} showFilament />
-          {scheduleLayout === 'calendar' ? (
-            <ScheduleCalendar
-              appointments={allMyAppts_cal}
-              t={t}
-              nextApptId={!activeAppt && nextAppt ? nextAppt.id : undefined}
-              onSlideStart={handleSlideStart}
-              activeAppt={activeApptLive}
-              startedAt={startedAt ?? null}
-              onEditActive={() =>
-                activeApptLive &&
-                router.push({
-                  pathname: '/(tabs)/appointments/edit-active',
-                  params: { id: activeApptLive.id, date: activeApptLive.date },
-                })
-              }
-              onCompleteActive={completeService}
-            />
-          ) : (
-            <ScheduleList
-              appointments={myAppts}
-              t={t}
-              nextApptId={!activeAppt && nextAppt ? nextAppt.id : undefined}
-              onSlideStart={handleSlideStart}
-              flexFill
-            />
-          )}
+          <ScheduleList
+            appointments={myAppts}
+            t={t}
+            nextApptId={!activeAppt && nextAppt ? nextAppt.id : undefined}
+            onSlideStart={handleSlideStart}
+            flexFill
+          />
         </View>
 
         {/* Book Appointment — always visible at bottom */}

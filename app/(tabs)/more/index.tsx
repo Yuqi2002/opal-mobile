@@ -43,6 +43,7 @@ export default function MoreScreen() {
     { key: 'earnings', icon: 'trending-up', label: t('moreMyEarnings'), route: '/(tabs)/more/earnings', show: isStaff(role) },
     { key: 'biz-info', icon: 'info', label: t('moreBusinessInfo'), route: '/(tabs)/more/business-info', show: canViewBusiness(role) },
     { key: 'biz-hours', icon: 'clock', label: t('moreBusinessHours'), route: '/(tabs)/more/business-hours', show: canViewBusiness(role) },
+    { key: 'staff-policies', icon: 'sliders', label: t('moreStaffPolicies'), route: '/(tabs)/more/staff-policies', show: isOwner(role) },
   ];
 
   const manageItems: MenuItem[] = [

@@ -10,9 +10,6 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../src/contexts/ThemeContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
-import { useScheduleLayout } from '../../../src/hooks/useScheduleLayout';
-import type { ScheduleLayout } from '../../../src/hooks/useScheduleLayout';
-
 type ThemeOption = 'light' | 'dark';
 
 const OPTIONS: { key: ThemeOption; icon: keyof typeof Feather.glyphMap; label: string; desc: string }[] = [
@@ -20,15 +17,9 @@ const OPTIONS: { key: ThemeOption; icon: keyof typeof Feather.glyphMap; label: s
   { key: 'dark', icon: 'moon', label: 'Dark', desc: 'Dark surfaces with light text' },
 ];
 
-const SCHEDULE_OPTIONS: { key: ScheduleLayout; icon: keyof typeof Feather.glyphMap; labelKey: string; descKey: string }[] = [
-  { key: 'list', icon: 'list', labelKey: 'scheduleList', descKey: 'scheduleListDesc' },
-  { key: 'calendar', icon: 'calendar', labelKey: 'scheduleCalendar', descKey: 'scheduleCalendarDesc' },
-];
-
 export default function AppearanceScreen() {
   const { colors, mode, setMode } = useTheme();
   const { t } = useTranslation();
-  const { scheduleLayout, setScheduleLayout } = useScheduleLayout();
   const router = useRouter();
 
   return (
@@ -67,29 +58,6 @@ export default function AppearanceScreen() {
           ))}
         </View>
 
-        <Text style={[styles.sectionLabel, { color: colors.textMuted, marginTop: 24 }]}>{t('scheduleView').toUpperCase()}</Text>
-        <View style={[styles.card, { backgroundColor: colors.warmWhite }]}>
-          {SCHEDULE_OPTIONS.map((opt, idx) => (
-            <React.Fragment key={opt.key}>
-              {idx > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
-              <Pressable
-                style={styles.row}
-                onPress={() => setScheduleLayout(opt.key)}
-              >
-                <View style={[styles.iconCircle, { backgroundColor: colors.creamDark }]}>
-                  <Feather name={opt.icon} size={18} color={scheduleLayout === opt.key ? colors.gold : colors.textMuted} />
-                </View>
-                <View style={styles.rowText}>
-                  <Text style={[styles.rowLabel, { color: colors.obsidian }]}>{t(opt.labelKey)}</Text>
-                  <Text style={[styles.rowDesc, { color: colors.textMuted }]}>{t(opt.descKey)}</Text>
-                </View>
-                {scheduleLayout === opt.key && (
-                  <Feather name="check-circle" size={20} color={colors.gold} />
-                )}
-              </Pressable>
-            </React.Fragment>
-          ))}
-        </View>
       </View>
     </SafeAreaView>
   );
