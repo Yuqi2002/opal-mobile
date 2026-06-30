@@ -20,6 +20,7 @@ import { Avatar } from '../../../../src/components/Avatar';
 import { StatusBadge } from '../../../../src/components/StatusBadge';
 import { getStaffForStore } from '../../../../src/data/staff';
 import { useStore } from '../../../../src/contexts/StoreContext';
+import { StorePicker } from '../../../../src/components/StorePicker';
 
 const ROLE_FILTERS = ['All', 'Staff', 'Receptionist', 'Owner'];
 
@@ -56,11 +57,17 @@ export default function StaffListScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.cream }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={22} color={colors.obsidian} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.obsidian }]}>{t('moreStaff')}</Text>
-        <View style={{ width: 22 }} />
+        <View style={styles.headerSide}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Feather name="arrow-left" size={22} color={colors.obsidian} />
+          </Pressable>
+        </View>
+        <Text style={[styles.title, { color: colors.obsidian }]} numberOfLines={1}>
+          {t('moreStaff')}
+        </Text>
+        <View style={[styles.headerSide, styles.headerSideRight]}>
+          <StorePicker />
+        </View>
       </View>
 
       <View style={styles.filters}>
@@ -127,6 +134,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
   },
   title: { fontSize: 18, fontFamily: 'Jost_500Medium' },
+  headerSide: { flex: 1 },
+  headerSideRight: { alignItems: 'flex-end' },
   filters: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
   list: { flex: 1 },
   listContent: { padding: 16, gap: 8 },

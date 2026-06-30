@@ -154,6 +154,12 @@ const en: Record<string, string> = {
   bizName: 'Salon name', bizAddress: 'Address', bizPhone: 'Phone',
   bizEmail: 'Email', bizTaxRate: 'Tax rate',
 
+  // Select-store prompt (per-location pages viewed in All Stores)
+  selectStoreTitle: 'Choose a location',
+  selectStoreTurns: 'Turn rotation is tracked per location. Choose a salon to see its queue.',
+  selectStoreBusinessInfo: 'Business details are specific to each location. Choose a salon to view its info.',
+  selectStoreBusinessHours: 'Hours are set per location. Choose a salon to view its hours.',
+
   // Hours
   hoursTitle: 'Business Hours', hoursClosed: 'Closed',
   hoursOpen: 'Open', hoursClose: 'Close',
@@ -275,8 +281,14 @@ const vi: Record<string, string> = {
   bkTitle: 'Đặt lịch', bkClient: 'Khách hàng',
   bkServices: 'Dịch vụ', bkTechnician: 'Kỹ thuật viên',
   bkConfirm: 'Xác nhận đặt lịch',
+  bkBlockTime: 'Chặn giờ',
 
   turnQueue: 'Hàng đợi lượt',
+
+  selectStoreTitle: 'Chọn địa điểm',
+  selectStoreTurns: 'Lượt được theo dõi riêng cho từng địa điểm. Chọn một tiệm để xem hàng đợi.',
+  selectStoreBusinessInfo: 'Thông tin doanh nghiệp riêng cho từng địa điểm. Chọn một tiệm để xem thông tin.',
+  selectStoreBusinessHours: 'Giờ làm việc được đặt riêng cho từng địa điểm. Chọn một tiệm để xem giờ.',
 
   moreProfile: 'Hồ sơ', moreReports: 'Báo cáo',
   morePayroll: 'Bảng lương', moreMyEarnings: 'Thu nhập',

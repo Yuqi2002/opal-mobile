@@ -105,14 +105,16 @@ export function StoreGate() {
 function StoreModal({
   visible,
   onClose,
+  allowAllStores = true,
 }: {
   visible: boolean;
   onClose: () => void;
+  allowAllStores?: boolean;
 }) {
   const { colors } = useTheme();
   const { user } = useAuth();
   const { selectedStoreId, userStores, setSelectedStoreId, isAllStores } = useStore();
-  const showAllOption = user ? !isStaff(user.role) : false;
+  const showAllOption = allowAllStores && (user ? !isStaff(user.role) : false);
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -163,7 +165,7 @@ function StoreModal({
 
 // ─── Colored pill in header row ───────────────────────
 
-export function StorePickerA() {
+export function StorePickerA({ allowAllStores = true }: { allowAllStores?: boolean } = {}) {
   const { colors } = useTheme();
   const { user } = useAuth();
   const { selectedStore, userStores, isAllStores, storeColor } = useStore();
@@ -193,15 +195,19 @@ export function StorePickerA() {
         <Text style={[styles.pillText, isAllStores && { color: '#1A1A18' }]}>{displayName}</Text>
         <Feather name="chevron-down" size={13} color={isAllStores ? 'rgba(26,26,24,0.5)' : 'rgba(255,255,255,0.8)'} />
       </Pressable>
-      <StoreModal visible={visible} onClose={() => setVisible(false)} />
+      <StoreModal
+        visible={visible}
+        onClose={() => setVisible(false)}
+        allowAllStores={allowAllStores}
+      />
     </>
   );
 }
 
 // ─── Default export ───────────────────────────────────
 
-export function StorePicker() {
-  return <StorePickerA />;
+export function StorePicker({ allowAllStores = true }: { allowAllStores?: boolean } = {}) {
+  return <StorePickerA allowAllStores={allowAllStores} />;
 }
 
 const styles = StyleSheet.create({

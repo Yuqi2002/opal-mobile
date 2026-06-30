@@ -10,6 +10,7 @@ import { FilterChips } from '../../../../src/components/FilterChips';
 import { Card } from '../../../../src/components/Card';
 import { StatusBadge } from '../../../../src/components/StatusBadge';
 import { EmptyState } from '../../../../src/components/EmptyState';
+import { StorePicker } from '../../../../src/components/StorePicker';
 import { SERVICES } from '../../../../src/data/services';
 import { fmtCurrency } from '../../../../src/utils/currency';
 import { shadows } from '../../../../src/theme/tokens';
@@ -87,11 +88,17 @@ export default function ServicesListScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Feather name="chevron-left" size={24} color={colors.obsidian} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.obsidian }]}>{t('svTitle')}</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerSide}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Feather name="chevron-left" size={24} color={colors.obsidian} />
+          </Pressable>
+        </View>
+        <Text style={[styles.title, { color: colors.obsidian }]} numberOfLines={1}>
+          {t('svTitle')}
+        </Text>
+        <View style={[styles.headerSide, styles.headerSideRight]}>
+          <StorePicker />
+        </View>
       </View>
 
       {/* Search */}
@@ -140,6 +147,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   title: { fontSize: 20, fontFamily: 'Jost_500Medium' },
+  headerSide: { flex: 1 },
+  headerSideRight: { alignItems: 'flex-end' },
   searchWrap: { paddingHorizontal: 16, marginBottom: 10 },
   chipWrap: { marginBottom: 8 },
   listContent: { paddingHorizontal: 16, paddingBottom: 100 },

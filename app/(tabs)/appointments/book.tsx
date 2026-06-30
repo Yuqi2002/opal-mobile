@@ -997,6 +997,10 @@ export default function BookScreen() {
     singleStore ? userStores[0].id : (selectedStoreId !== 'all' ? selectedStoreId : null)
   );
   const [showStorePicker, setShowStorePicker] = useState(false);
+  // Multi-store users must explicitly confirm the store before the rest of the
+  // form unlocks — even when a store is pre-filled from the current context, so
+  // we never silently book into the wrong location. Single-store users skip this.
+  const [storeConfirmed, setStoreConfirmed] = useState(singleStore);
 
   const [clientSearch, setClientSearch] = useState('');
   const [selectedClient, setSelectedClient] = useState<BookingClient | null>(null);
@@ -1042,7 +1046,9 @@ export default function BookScreen() {
   }));
 
   // ─── Reveal animation ────────────────────────────────
-  const showRest = storeId !== null;
+  // Rest of the form unlocks only once the store is confirmed (single-store
+  // users are auto-confirmed above).
+  const showRest = storeConfirmed && storeId !== null;
   const revealProgress = useSharedValue(showRest ? 1 : 0);
   const [restMounted, setRestMounted] = useState(showRest);
 
@@ -1343,7 +1349,14 @@ export default function BookScreen() {
               <View style={s.sectionHeader}>
                 <SectionNumber num="01" />
                 <Text style={[s.sectionTitle, { color: colors.obsidian }]}>Store</Text>
-                <Text style={[s.requiredBadge, { color: colors.goldDeep }]}>Required</Text>
+                {storeConfirmed ? (
+                  <View style={s.confirmedBadge}>
+                    <Feather name="check" size={12} color={colors.sage} />
+                    <Text style={[s.requiredBadge, { color: colors.sage }]}>Confirmed</Text>
+                  </View>
+                ) : (
+                  <Text style={[s.requiredBadge, { color: colors.goldDeep }]}>Required</Text>
+                )}
               </View>
 
               <Pressable
@@ -1415,6 +1428,24 @@ export default function BookScreen() {
                     );
                   })}
                 </View>
+              )}
+
+              {/* Explicit confirmation gate — prevents silently booking the
+                  pre-filled context store into the wrong location */}
+              {!storeConfirmed && (
+                <Pressable
+                  onPress={() => storeId && setStoreConfirmed(true)}
+                  disabled={!storeId}
+                  style={[
+                    s.confirmStoreBtn,
+                    { backgroundColor: storeId ? colors.goldDeep : colors.textFaint },
+                  ]}
+                >
+                  <Feather name="check" size={16} color={colors.warmWhite} />
+                  <Text style={[s.confirmStoreBtnText, { color: colors.warmWhite }]}>
+                    {storeId ? 'Confirm store' : 'Select a store to continue'}
+                  </Text>
+                </Pressable>
               )}
             </View>
           )}
@@ -1923,6 +1954,24 @@ const s = StyleSheet.create({
   requiredBadge: {
     fontSize: 11,
     fontFamily: 'Jost_500Medium',
+  },
+  confirmedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  confirmStoreBtn: {
+    marginTop: 12,
+    height: 48,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  confirmStoreBtnText: {
+    fontSize: 15,
+    fontFamily: 'Jost_600SemiBold',
   },
 
   // Store

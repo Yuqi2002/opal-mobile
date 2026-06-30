@@ -448,6 +448,28 @@ function TechDropdown({
   );
 }
 
+// ─── Block Time Button ───────────────────────────────────
+
+function BlockTimeButton() {
+  const { colors } = useTheme();
+  const { t } = useTranslation();
+  const router = useRouter();
+  return (
+    <Pressable
+      onPress={() => router.push("/(tabs)/appointments/block-time")}
+      style={[s.blockTimeBtn, { backgroundColor: colors.creamDark }]}
+    >
+      <Feather name="clock" size={14} color={colors.charcoal} />
+      <Text
+        style={[s.blockTimeLabel, { color: colors.charcoal }]}
+        numberOfLines={1}
+      >
+        {t("bkBlockTime")}
+      </Text>
+    </Pressable>
+  );
+}
+
 // ─── Glow Wrapper (single pulse for newly created appts) ───
 
 function GlowCard({
@@ -1115,12 +1137,6 @@ export default function AppointmentsScreen() {
         </Text>
         <View style={s.headerActions}>
           <StorePicker />
-          <Pressable
-            onPress={() => router.push("/(tabs)/appointments/block-time")}
-            style={[s.headerBtn, { backgroundColor: colors.creamDark }]}
-          >
-            <Feather name="clock" size={18} color={colors.charcoal} />
-          </Pressable>
         </View>
       </View>
 
@@ -1173,7 +1189,7 @@ export default function AppointmentsScreen() {
       {/* Staff upcoming — calendar timeline (own scroll) */}
       {tab === "upcoming" && isStaffUser ? (
         <View style={{ flex: 1 }}>
-          {/* Date picker */}
+          {/* Date picker + Block Time */}
           <View style={s.dateAndTechRow}>
             <View style={{ flex: 1 }}>
               <CalendarDatePicker
@@ -1181,6 +1197,7 @@ export default function AppointmentsScreen() {
                 onSelect={(d) => setSelectedDate(d)}
               />
             </View>
+            <BlockTimeButton />
           </View>
 
           {/* Calendar timeline */}
@@ -1205,8 +1222,14 @@ export default function AppointmentsScreen() {
         >
           {tab === "upcoming" ? (
             <>
-              {/* Calendar + Tech dropdown row */}
+              {/* Tech dropdown + Calendar + Block Time row */}
               <View style={s.dateAndTechRow}>
+                {canFilterByTech && (
+                  <TechDropdown
+                    selected={techFilter}
+                    onSelect={setTechFilter}
+                  />
+                )}
                 <View style={{ flex: 1 }}>
                   <CalendarDatePicker
                     selected={selectedDate}
@@ -1214,12 +1237,7 @@ export default function AppointmentsScreen() {
                     disablePast
                   />
                 </View>
-                {canFilterByTech && (
-                  <TechDropdown
-                    selected={techFilter}
-                    onSelect={setTechFilter}
-                  />
-                )}
+                <BlockTimeButton />
               </View>
 
               {/* Search */}
@@ -1236,8 +1254,14 @@ export default function AppointmentsScreen() {
             </>
           ) : (
             <>
-              {/* Calendar + Tech dropdown row */}
+              {/* Tech dropdown + Calendar + Block Time row */}
               <View style={s.dateAndTechRow}>
+                {canFilterByTech && (
+                  <TechDropdown
+                    selected={pastTechFilter}
+                    onSelect={setPastTechFilter}
+                  />
+                )}
                 <View style={{ flex: 1 }}>
                   <CalendarDatePicker
                     selected={pastDate}
@@ -1245,12 +1269,7 @@ export default function AppointmentsScreen() {
                     disableFuture
                   />
                 </View>
-                {canFilterByTech && (
-                  <TechDropdown
-                    selected={pastTechFilter}
-                    onSelect={setPastTechFilter}
-                  />
-                )}
+                <BlockTimeButton />
               </View>
 
               {/* Search */}
@@ -1302,13 +1321,6 @@ const s = StyleSheet.create({
     letterSpacing: -0.5,
   },
   headerActions: { flexDirection: "row", gap: 8 },
-  headerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   fab: {
     position: "absolute",
     bottom: 24,
@@ -1344,7 +1356,7 @@ const s = StyleSheet.create({
 
   // Calendar Date Picker
   calPickerContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingBottom: 12,
     zIndex: 10,
   },
@@ -1355,9 +1367,9 @@ const s = StyleSheet.create({
     gap: 4,
   },
   calArrowBtn: {
-    width: 36,
+    width: 32,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1457,8 +1469,23 @@ const s = StyleSheet.create({
   dateAndTechRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingRight: 16,
+    paddingHorizontal: 16,
+    gap: 6,
     zIndex: 100,
+  },
+
+  // Block Time button
+  blockTimeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 11,
+    height: 36,
+    borderRadius: 10,
+  },
+  blockTimeLabel: {
+    fontSize: 13,
+    fontFamily: "Jost_500Medium",
   },
 
   // Tech dropdown
@@ -1483,7 +1510,7 @@ const s = StyleSheet.create({
   techDropList: {
     position: "absolute",
     top: 40,
-    right: 0,
+    left: 0,
     minWidth: 150,
     borderRadius: 12,
     borderWidth: 1,

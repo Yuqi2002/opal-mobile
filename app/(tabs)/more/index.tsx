@@ -15,6 +15,7 @@ import { useAuth } from '../../../src/contexts/AuthContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
 import { Avatar } from '../../../src/components/Avatar';
 import { StatusBadge } from '../../../src/components/StatusBadge';
+import { StorePicker } from '../../../src/components/StorePicker';
 import { isOwner, isStaff, canViewBusiness, canManageRoles } from '../../../src/utils/permissions';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
@@ -96,6 +97,14 @@ export default function MoreScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: colors.obsidian }]}>{t('navMore')}</Text>
+        <View style={styles.headerActions}>
+          <StorePicker />
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -138,6 +147,20 @@ export default function MoreScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontFamily: 'Jost_300Light',
+    letterSpacing: -0.5,
+  },
+  headerActions: { flexDirection: 'row', gap: 8 },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 32 },
   profileCard: {
@@ -145,7 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: 8,
     marginBottom: 8,
     padding: 16,
     borderRadius: 14,

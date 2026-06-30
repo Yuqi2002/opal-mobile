@@ -14,6 +14,8 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../src/contexts/ThemeContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
 import { useStore } from '../../../src/contexts/StoreContext';
+import { SelectStorePrompt } from '../../../src/components/SelectStorePrompt';
+import { StorePicker } from '../../../src/components/StorePicker';
 
 const DAYS = [
   { key: 'mon', label: 'Monday' },
@@ -66,7 +68,7 @@ const DEFAULT_HOURS: Record<string, DayHours> = {
 export default function BusinessHoursScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const { selectedStore } = useStore();
+  const { selectedStore, isAllStores } = useStore();
   const router = useRouter();
 
   const [hours, setHours] = useState<Record<string, DayHours>>(DEFAULT_HOURS);
@@ -107,15 +109,22 @@ export default function BusinessHoursScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.cream }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={22} color={colors.obsidian} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.obsidian }]}>{t('moreBusinessHours')}</Text>
-        <Pressable hitSlop={8}>
-          <Text style={[styles.saveBtn, { color: colors.goldDeep }]}>{t('save')}</Text>
-        </Pressable>
+        <View style={styles.headerSide}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Feather name="arrow-left" size={22} color={colors.obsidian} />
+          </Pressable>
+        </View>
+        <Text style={[styles.title, { color: colors.obsidian }]} numberOfLines={1}>
+          {t('moreBusinessHours')}
+        </Text>
+        <View style={[styles.headerSide, styles.headerSideRight]}>
+          <StorePicker allowAllStores={false} />
+        </View>
       </View>
 
+      {isAllStores ? (
+        <SelectStorePrompt icon="clock" message={t('selectStoreBusinessHours')} />
+      ) : (
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
         {selectedStore && (
           <Text style={[styles.storeName, { color: colors.textMuted }]}>
@@ -263,6 +272,7 @@ export default function BusinessHoursScreen() {
           )}
         </View>
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -278,7 +288,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
   },
   title: { fontSize: 18, fontFamily: 'Jost_500Medium' },
-  saveBtn: { fontSize: 15, fontFamily: 'Jost_600SemiBold' },
+  headerSide: { flex: 1 },
+  headerSideRight: { alignItems: 'flex-end' },
   body: { flex: 1 },
   bodyContent: { padding: 16, gap: 10 },
   storeName: { fontSize: 13, fontFamily: 'Jost_400Regular', marginBottom: 4 },

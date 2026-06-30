@@ -10,6 +10,7 @@ import { useStore } from '../../src/contexts/StoreContext';
 import { useStaffPolicies } from '../../src/contexts/StaffPoliciesContext';
 import { isStaff } from '../../src/utils/permissions';
 import { StorePicker } from '../../src/components/StorePicker';
+import { SelectStorePrompt } from '../../src/components/SelectStorePrompt';
 import { Avatar } from '../../src/components/Avatar';
 import { EmptyState } from '../../src/components/EmptyState';
 import { generateTurnQueueState, TURN_SERVICES } from '../../src/data/turns';
@@ -225,7 +226,7 @@ export default function TurnsScreen() {
   const { user } = useAuth();
   const { t } = useTranslation();
 
-  const { selectedStoreId } = useStore();
+  const { selectedStoreId, isAllStores } = useStore();
   const { turnQueueVisibility } = useStaffPolicies();
   const turnState = useMemo(() => generateTurnQueueState(selectedStoreId), [selectedStoreId]);
 
@@ -266,10 +267,15 @@ export default function TurnsScreen() {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.obsidian }]}>{t('turnQueue')}</Text>
-          <StorePicker />
+          <StorePicker allowAllStores={false} />
         </View>
       </View>
 
+      {/* All-stores: prompt to pick a location (turns are per-store) */}
+      {isAllStores ? (
+        <SelectStorePrompt icon="layers" message={t('selectStoreTurns')} />
+      ) : (
+        <>
       {/* Position chip for own-only mode */}
       {effectiveVisibility === 'own-only' && ownRank > 0 && (
         <View style={styles.positionBanner}>
@@ -316,6 +322,8 @@ export default function TurnsScreen() {
             );
           })}
         </ScrollView>
+      )}
+        </>
       )}
     </SafeAreaView>
   );

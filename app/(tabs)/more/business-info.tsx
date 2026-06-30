@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,23 +16,34 @@ import { useAuth } from '../../../src/contexts/AuthContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
 import { useStore } from '../../../src/contexts/StoreContext';
 import { canEditBusiness } from '../../../src/utils/permissions';
-import { STORES } from '../../../src/data/stores';
+import { SelectStorePrompt } from '../../../src/components/SelectStorePrompt';
+import { StorePicker } from '../../../src/components/StorePicker';
 
 export default function BusinessInfoScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
-  const { selectedStore, userStores } = useStore();
+  const { selectedStore, isAllStores } = useStore();
 
-  const store = selectedStore ?? userStores[0] ?? STORES[0];
+  const store = selectedStore;
   const canEdit = user ? canEditBusiness(user.role) : false;
 
-  const [name, setName] = useState(store.name);
-  const [address, setAddress] = useState(store.address);
-  const [phone, setPhone] = useState(store.phone);
-  const [email, setEmail] = useState(store.email);
-  const [taxRate, setTaxRate] = useState(store.taxRate.toString());
+  const [name, setName] = useState(store?.name ?? '');
+  const [address, setAddress] = useState(store?.address ?? '');
+  const [phone, setPhone] = useState(store?.phone ?? '');
+  const [email, setEmail] = useState(store?.email ?? '');
+  const [taxRate, setTaxRate] = useState(store?.taxRate?.toString() ?? '');
+
+  // Re-populate fields when the selected store changes (e.g. picked from the prompt)
+  useEffect(() => {
+    if (!store) return;
+    setName(store.name);
+    setAddress(store.address);
+    setPhone(store.phone);
+    setEmail(store.email);
+    setTaxRate(store.taxRate.toString());
+  }, [store?.id]);
 
   const handleSave = () => {
     Alert.alert('Saved', 'Business info updated.');
@@ -67,13 +78,22 @@ export default function BusinessInfoScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Feather name="arrow-left" size={24} color={colors.obsidian} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.obsidian }]}>{t('moreBusinessInfo')}</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerSide}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Feather name="arrow-left" size={24} color={colors.obsidian} />
+          </Pressable>
+        </View>
+        <Text style={[styles.headerTitle, { color: colors.obsidian }]} numberOfLines={1}>
+          {t('moreBusinessInfo')}
+        </Text>
+        <View style={[styles.headerSide, styles.headerSideRight]}>
+          <StorePicker allowAllStores={false} />
+        </View>
       </View>
 
+      {isAllStores || !store ? (
+        <SelectStorePrompt icon="info" message={t('selectStoreBusinessInfo')} />
+      ) : (
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -104,6 +124,7 @@ export default function BusinessInfoScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -118,6 +139,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   headerTitle: { fontSize: 18, fontFamily: 'Jost_600SemiBold' },
+  headerSide: { flex: 1 },
+  headerSideRight: { alignItems: 'flex-end' },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 32 },
   storeChip: {

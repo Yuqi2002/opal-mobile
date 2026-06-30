@@ -13,6 +13,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../src/contexts/ThemeContext';
 import { useTranslation } from '../../../src/contexts/I18nContext';
 import { useStaffPolicies, TurnQueueVisibility } from '../../../src/contexts/StaffPoliciesContext';
+import { StorePicker } from '../../../src/components/StorePicker';
 
 const TURN_OPTIONS: { key: TurnQueueVisibility; icon: keyof typeof Feather.glyphMap; labelKey: string; descKey: string }[] = [
   { key: 'full', icon: 'eye', labelKey: 'spTurnFull', descKey: 'spTurnFullDesc' },
@@ -37,11 +38,17 @@ export default function StaffPoliciesScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.cream }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={22} color={colors.obsidian} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.obsidian }]}>{t('spTitle')}</Text>
-        <View style={{ width: 22 }} />
+        <View style={styles.headerSide}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Feather name="arrow-left" size={22} color={colors.obsidian} />
+          </Pressable>
+        </View>
+        <Text style={[styles.title, { color: colors.obsidian }]} numberOfLines={1}>
+          {t('spTitle')}
+        </Text>
+        <View style={[styles.headerSide, styles.headerSideRight]}>
+          <StorePicker />
+        </View>
       </View>
 
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
@@ -130,6 +137,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
   },
   title: { fontSize: 18, fontFamily: 'Jost_500Medium' },
+  headerSide: { flex: 1 },
+  headerSideRight: { alignItems: 'flex-end' },
   body: { flex: 1 },
   bodyContent: { padding: 16, paddingBottom: 40 },
   sectionLabel: {
